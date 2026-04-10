@@ -161,6 +161,8 @@ public enum ErrorCode {
 
 	TENANT_NOT_FOUND(404, RESPONSE_ERROR, "TenantNotFound", "Tenant can not be found."),
 
+	TENANT_DISABLED(403, RESPONSE_ERROR, "TenantDisabled", "Tenant is disabled."),
+
 	WORKSPACE_ACCESS_DENIED(403, RESPONSE_ERROR, "WorkspaceAccessDenied", "Workspace access denied."),
 
 	WORKSPACE_DELETION_FORBIDDEN(403, RESPONSE_ERROR, "WorkspaceDeletionForbidden",

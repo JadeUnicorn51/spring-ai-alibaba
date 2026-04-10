@@ -18,12 +18,15 @@ package com.alibaba.cloud.ai.studio.admin.builder.interceptor;
 
 import com.alibaba.cloud.ai.studio.runtime.constants.ApiConstants;
 import com.alibaba.cloud.ai.studio.runtime.enums.ErrorCode;
+import com.alibaba.cloud.ai.studio.runtime.enums.CommonStatus;
 import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
 import com.alibaba.cloud.ai.studio.runtime.domain.Result;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.Account;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.Tenant;
 import com.alibaba.cloud.ai.studio.runtime.utils.JsonUtils;
 import com.alibaba.cloud.ai.studio.core.base.manager.TokenManager;
 import com.alibaba.cloud.ai.studio.core.base.service.AccountService;
+import com.alibaba.cloud.ai.studio.core.base.service.TenantService;
 import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
 import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
 import com.alibaba.cloud.ai.studio.core.utils.LogUtils;
@@ -56,6 +59,9 @@ public class TokenAuthInterceptor implements HandlerInterceptor {
 
 	/** Manager for handling token operations */
 	private final TokenManager tokenManager;
+
+	/** Service for tenant status validation */
+	private final TenantService tenantService;
 
 	/**
 	 * Intercepts requests to validate authentication token and set up request context.
@@ -98,6 +104,10 @@ public class TokenAuthInterceptor implements HandlerInterceptor {
 			returnAuthError(start, response, ErrorCode.INVALID_TOKEN);
 			return false;
 		}
+		if (!isTenantActive(account.getTenantId())) {
+			returnAuthError(start, response, ErrorCode.TENANT_DISABLED);
+			return false;
+		}
 
 		RequestContext context = new RequestContext();
 		context.setRequestId(IdGenerator.uuid());
@@ -122,7 +132,7 @@ public class TokenAuthInterceptor implements HandlerInterceptor {
 	 */
 	public void returnAuthError(long start, HttpServletResponse response, ErrorCode errorCode) {
 		response.setContentType("application/json;charset=UTF-8");
-		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+		response.setStatus(errorCode.getStatusCode());
 		Result<String> result = Result.error(IdGenerator.uuid(), errorCode);
 
 		LogUtils.monitor("AuthInterceptor", "TokenAuth", start, "unauthorized", "", result);
@@ -133,6 +143,14 @@ public class TokenAuthInterceptor implements HandlerInterceptor {
 		catch (IOException e) {
 			LogUtils.error("failed to unauthorized message: {}", result, e);
 		}
+	}
+
+	private boolean isTenantActive(String tenantId) {
+		if (tenantId == null || tenantId.isBlank()) {
+			return true;
+		}
+		Tenant tenant = tenantService.getTenant(tenantId);
+		return tenant != null && CommonStatus.NORMAL.getStatus().equals(tenant.getStatus());
 	}
 
 }

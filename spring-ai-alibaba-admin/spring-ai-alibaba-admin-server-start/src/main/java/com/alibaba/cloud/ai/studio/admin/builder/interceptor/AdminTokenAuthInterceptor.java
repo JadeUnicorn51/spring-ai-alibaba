@@ -132,7 +132,7 @@ public class AdminTokenAuthInterceptor implements HandlerInterceptor {
      */
     public void returnAuthError(long start, HttpServletResponse response, ErrorCode errorCode) {
         response.setContentType("application/json;charset=UTF-8");
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setStatus(errorCode.getStatusCode());
         Result<String> result = Result.error(IdGenerator.uuid(), errorCode);
 
         LogUtils.monitor("AdminTokenAuthInterceptor", "platformAdminAuth", start, "unauthorized", "", result);

@@ -22,9 +22,11 @@ import com.alibaba.cloud.ai.studio.runtime.domain.account.LoginRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.RefreshTokenRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.TokenResponse;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.Workspace;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.Tenant;
 import com.alibaba.cloud.ai.studio.runtime.exception.BizException;
 import com.alibaba.cloud.ai.studio.runtime.enums.AccountStatus;
 import com.alibaba.cloud.ai.studio.runtime.enums.AccountType;
+import com.alibaba.cloud.ai.studio.runtime.enums.CommonStatus;
 import com.alibaba.cloud.ai.studio.runtime.enums.ErrorCode;
 import com.alibaba.cloud.ai.studio.runtime.domain.BaseQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.PagingList;
@@ -32,6 +34,7 @@ import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
 import com.alibaba.cloud.ai.studio.core.base.manager.ProviderManager;
 import com.alibaba.cloud.ai.studio.core.base.manager.ModelManager;
 import com.alibaba.cloud.ai.studio.core.base.service.AccountService;
+import com.alibaba.cloud.ai.studio.core.base.service.TenantService;
 import com.alibaba.cloud.ai.studio.core.base.service.WorkspaceService;
 import com.alibaba.cloud.ai.studio.core.config.JwtConfigProperties;
 import com.alibaba.cloud.ai.studio.core.base.constants.CacheConstants;
@@ -82,6 +85,9 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 
 	/** workspace service */
 	private final WorkspaceService workspaceService;
+
+	/** tenant service */
+	private final TenantService tenantService;
 
 	private final ProviderManager providerManager;
 
@@ -507,6 +513,12 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 	 * @return Token response
 	 */
 	private TokenResponse createTokenResponse(String accountId) {
+		AccountEntity accountEntity = getAccountById(accountId);
+		if (accountEntity == null) {
+			throw new BizException(ErrorCode.ACCOUNT_NOT_FOUND.toError());
+		}
+		validateTenantAccessible(accountEntity.getTenantId());
+
 		String accessToken = tokenManager.generateAccessToken(accountId);
 		String refreshToken = tokenManager.generateRefreshToken(accountId);
 
@@ -658,6 +670,19 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		workspace.setName("Default Workspace");
 		workspace.setDescription("Default workspace");
 		return workspaceService.createWorkspace(workspace);
+	}
+
+	private void validateTenantAccessible(String tenantId) {
+		if (StringUtils.isBlank(tenantId)) {
+			return;
+		}
+		Tenant tenant = tenantService.getTenant(tenantId);
+		if (tenant == null) {
+			throw new BizException(ErrorCode.TENANT_NOT_FOUND.toError());
+		}
+		if (!CommonStatus.NORMAL.getStatus().equals(tenant.getStatus())) {
+			throw new BizException(ErrorCode.TENANT_DISABLED.toError());
+		}
 	}
 
 }
