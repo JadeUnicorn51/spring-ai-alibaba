@@ -30,6 +30,7 @@ import UserAccountModal from '@/components/UserAccountModal';
 import PureLayout from './Pure';
 import { ModelsContext } from '@/legacy/context/models';
 import PromptAPI from '@/legacy/services';
+import { isSuperAdminAccountType } from '@/utils/accountType';
 
 const { Sider, Content } = AntLayout;
 
@@ -120,6 +121,7 @@ const getSelectedMenuKey = (pathname: string): string => {
 export default function SideMenuLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const isSuperAdmin = isSuperAdminAccountType(window.g_config.user?.type);
   const [collapsed, setCollapsed] = useState(false);
   const [models, setModels] = useState<any[]>([]);
   const [modelNameMap, setModelNameMap] = useState<Record<number, string>>({});
@@ -140,12 +142,19 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
       });
   }, []);
 
+  // 非 SUPER_ADMIN 禁止直接访问平台租户管理页
+  useEffect(() => {
+    if (location.pathname.startsWith('/admin/tenants') && !isSuperAdmin) {
+      navigate('/app');
+    }
+  }, [location.pathname, isSuperAdmin, navigate]);
+
   // 获取应该高亮的菜单项 key
   const selectedKey = useMemo(() => getSelectedMenuKey(location.pathname), [location.pathname]);
 
   // 构建菜单项
-  const menuItems = useMemo(
-    () => [
+  const menuItems = useMemo(() => {
+    const items: any[] = [
       {
         key: 'studio',
         label: $i18n.get({
@@ -190,18 +199,6 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
               dm: 'Dify To Graph',
             }),
             icon: <SwapOutlined />,
-          },
-        ],
-      },
-      {
-        key: 'platform',
-        label: '平台治理',
-        icon: <TeamOutlined />,
-        children: [
-          {
-            key: '/admin/tenants',
-            label: '租户管理',
-            icon: <TeamOutlined />,
           },
         ],
       },
@@ -264,9 +261,25 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
         }),
         icon: <SettingOutlined />,
       },
-    ],
-    [],
-  );
+    ];
+
+    if (isSuperAdmin) {
+      items.splice(1, 0, {
+        key: 'platform',
+        label: '平台治理',
+        icon: <TeamOutlined />,
+        children: [
+          {
+            key: '/admin/tenants',
+            label: '租户管理',
+            icon: <TeamOutlined />,
+          },
+        ],
+      });
+    }
+
+    return items;
+  }, [isSuperAdmin]);
 
   const handleMenuClick = ({ key }: { key: string }) => {
     navigate(key);
@@ -324,7 +337,7 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
               <Menu
                 mode="inline"
                 selectedKeys={[selectedKey]}
-                defaultOpenKeys={collapsed ? [] : ['studio', 'platform']}
+                defaultOpenKeys={collapsed ? [] : isSuperAdmin ? ['studio', 'platform'] : ['studio']}
                 items={menuItems}
                 onClick={handleMenuClick}
                 className="border-r-0 mt-6"
