@@ -4,7 +4,7 @@
 
     <!-- Dataset Item table fields -->
     <sql id="dataset_item_columns">
-        id, dataset_id, columns_config, data_content, create_time, update_time
+        id, dataset_id, columns_config, data_content, create_time, update_time, tenant_id
     </sql>
 
     <!-- Dataset Item entity mapping -->
@@ -15,12 +15,13 @@
         <result property="dataContent" column="data_content"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
+        <result property="tenantId" column="tenant_id"/>
     </resultMap>
 
     <!-- Create dataset item -->
     <insert id="insert" parameterType="com.alibaba.cloud.ai.studio.admin.entity.DatasetItemDO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO dataset_item (dataset_id, columns_config, data_content, create_time, update_time)
-        VALUES (#{datasetId}, #{columnsConfig}, #{dataContent}, NOW(), NOW())
+        INSERT INTO dataset_item (dataset_id, columns_config, data_content, create_time, update_time, tenant_id)
+        VALUES (#{datasetId}, #{columnsConfig}, #{dataContent}, NOW(), NOW(), #{tenantId})
     </insert>
 
     <!-- Delete dataset item by ID (logical delete) -->

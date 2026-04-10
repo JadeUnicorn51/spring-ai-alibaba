@@ -170,6 +170,9 @@ index_command='curl -X PUT "http://elasticsearch:9200/loongsuite_traces" \
     "mappings": {
       "dynamic": "false",
       "properties": {
+        "tenant_id": {
+          "type": "keyword"
+        },
         "metadata": {
           "type": "object",
           "properties": {

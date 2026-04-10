@@ -42,6 +42,10 @@ public class RequestContext implements Serializable {
 	@JsonProperty("account_id")
 	private String accountId;
 
+	/** Tenant identifier */
+	@JsonProperty("tenant_id")
+	private String tenantId;
+
 	/** User account name */
 	private String username;
 

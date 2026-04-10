@@ -48,6 +48,10 @@ public class KnowledgeBaseEntity {
 	@TableField("workspace_id")
 	private String workspaceId;
 
+	/** Tenant identifier - null means platform level */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	/** Type of the knowledge base */
 	private KnowledgeBaseType type;
 

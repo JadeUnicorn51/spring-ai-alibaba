@@ -36,6 +36,10 @@ public class Account implements Serializable {
 	@JsonProperty("account_id")
 	private String accountId;
 
+	/** Tenant identifier - null means platform level (SUPER_ADMIN) */
+	@JsonProperty("tenant_id")
+	private String tenantId;
+
 	/** Default workspace ID for the account */
 	@JsonProperty("default_workspace_id")
 	private String defaultWorkspaceId;

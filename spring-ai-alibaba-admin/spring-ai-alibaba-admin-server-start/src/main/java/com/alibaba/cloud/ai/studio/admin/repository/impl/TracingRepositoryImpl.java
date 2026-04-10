@@ -6,6 +6,7 @@ import com.alibaba.cloud.ai.studio.admin.dto.request.OverviewQueryRequest;
 import com.alibaba.cloud.ai.studio.admin.dto.request.ServicesQueryRequest;
 import com.alibaba.cloud.ai.studio.admin.dto.request.TracesQueryRequest;
 import com.alibaba.cloud.ai.studio.admin.repository.TracingRepository;
+import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,11 +32,16 @@ public class TracingRepositoryImpl implements TracingRepository {
     private final TracingQueryBuilder queryBuilder;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private String getTenantId() {
+        return TenantContextHolder.getTenantId();
+    }
+
     @Override
     public PageResult<TraceSpanDTO> queryTraces(TracesQueryRequest request) {
         log.info("查询Traces列表: {}", request);
-        
-        SearchRequest searchRequest = queryBuilder.buildTracesQuery(request);
+
+        String tenantId = getTenantId();
+        SearchRequest searchRequest = queryBuilder.buildTracesQuery(request, tenantId);
         SearchResponse<Map> response = elasticsearchClient.search(TRACES_INDEX, searchRequest);
         
         List<TraceSpanDTO> spans = elasticsearchClient.extractHits(response).stream()
@@ -48,8 +54,9 @@ public class TracingRepositoryImpl implements TracingRepository {
     @Override
     public TraceDetailDTO getTraceDetail(String traceId) {
         log.info("查询Trace详情: {}", traceId);
-        
-        SearchRequest searchRequest = queryBuilder.buildTraceDetailQuery(traceId);
+
+        String tenantId = getTenantId();
+        SearchRequest searchRequest = queryBuilder.buildTraceDetailQuery(traceId, tenantId);
         SearchResponse<Map> response = elasticsearchClient.search(TRACES_INDEX, searchRequest);
         
         List<TraceSpanDTO> spans = elasticsearchClient.extractHits(response).stream()
@@ -62,8 +69,9 @@ public class TracingRepositoryImpl implements TracingRepository {
     @Override
     public ServicesResponseDTO getServices(ServicesQueryRequest request) {
         log.info("查询服务列表: {}", request);
-        
-        SearchRequest searchRequest = queryBuilder.buildServicesQuery(request);
+
+        String tenantId = getTenantId();
+        SearchRequest searchRequest = queryBuilder.buildServicesQuery(request, tenantId);
         SearchResponse<Map> response = elasticsearchClient.search(TRACES_INDEX, searchRequest);
         
         List<ServiceInfoDTO> services = new ArrayList<>();
@@ -99,8 +107,9 @@ public class TracingRepositoryImpl implements TracingRepository {
     @Override
     public OverviewStatsDTO getOverview(OverviewQueryRequest request) {
         log.info("查询概览统计: {}", request);
-        
-        SearchRequest searchRequest = queryBuilder.buildOverviewQuery(request);
+
+        String tenantId = getTenantId();
+        SearchRequest searchRequest = queryBuilder.buildOverviewQuery(request, tenantId);
         SearchResponse<Map> response = elasticsearchClient.search(TRACES_INDEX, searchRequest);
         
         Map<String, Aggregate> aggregations = response.aggregations();
@@ -120,11 +129,12 @@ public class TracingRepositoryImpl implements TracingRepository {
     @Override
     public void saveSpans(List<TraceSpanDTO> spans) {
         log.info("批量保存Span数据: {} 条", spans.size());
-        
+
+        String tenantId = getTenantId();
         List<Map<String, Object>> documents = spans.stream()
-            .map(this::convertToElasticsearchDoc)
+            .map(span -> convertToElasticsearchDoc(span, tenantId))
             .collect(Collectors.toList());
-        
+
         elasticsearchClient.bulkIndex(TRACES_INDEX, documents);
     }
 
@@ -171,7 +181,7 @@ public class TracingRepositoryImpl implements TracingRepository {
     /**
      * 转换为Elasticsearch文档
      */
-    private Map<String, Object> convertToElasticsearchDoc(TraceSpanDTO span) {
+    private Map<String, Object> convertToElasticsearchDoc(TraceSpanDTO span, String tenantId) {
         Map<String, Object> doc = new HashMap<>();
         doc.put("traceId", span.getTraceId());
         doc.put("spanId", span.getSpanId());
@@ -188,6 +198,7 @@ public class TracingRepositoryImpl implements TracingRepository {
         doc.put("resources", span.getResources());
         doc.put("links", span.getSpanLinks());
         doc.put("events", span.getSpanEvents());
+        doc.put("tenant_id", tenantId);
         return doc;
     }
 

@@ -11,6 +11,7 @@ import com.alibaba.cloud.ai.studio.admin.entity.DatasetVersionDO;
 import com.alibaba.cloud.ai.studio.admin.mapper.DatasetMapper;
 import com.alibaba.cloud.ai.studio.admin.mapper.DatasetVersionMapper;
 import com.alibaba.cloud.ai.studio.admin.service.DatasetService;
+import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,9 @@ public class DatasetServiceImpl implements DatasetService {
     private static final String INPUT_COLUMN_TYPE = "input";
     private static final String REFERENCE_OUTPUT_COLUMN_TYPE = "reference_output";
 
+    private String getTenantId() {
+        return TenantContextHolder.getTenantId();
+    }
 
     @Override
     @Transactional
@@ -58,6 +62,7 @@ public class DatasetServiceImpl implements DatasetService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .columnsConfig(JSONObject.toJSONString(request.getColumnsConfig()))
+                .tenantId(getTenantId())
                 .build();
 
         datasetMapper.insert(datasetDO);
@@ -76,21 +81,22 @@ public class DatasetServiceImpl implements DatasetService {
         
         // 获取搜索条件
         String name = request.getDatasetName();
-        
+        String tenantId = getTenantId();
+
         // 查询数据
-        List<DatasetDO> datasetDOList = datasetMapper.selectList(name, offset, pageSize);
+        List<DatasetDO> datasetDOList = datasetMapper.selectList(name, tenantId, offset, pageSize);
 
         List<Dataset> datasetList = datasetDOList.stream()
                 .map(Dataset::fromDO)
                 .peek(dataset -> {
-                    DatasetVersionDO datasetVersionDO = datasetVersionMapper.selectLatestVersion(dataset.getId());
+                    DatasetVersionDO datasetVersionDO = datasetVersionMapper.selectLatestVersion(dataset.getId(), tenantId);
                     if (Objects.nonNull(datasetVersionDO)) {
                         dataset.setDataCount(datasetVersionDO.getDataCount());
                         dataset.setLatestVersion(datasetVersionDO.getVersion());
                     }
                 })
                 .toList();
-        int total = datasetMapper.selectCount(name);
+        int total = datasetMapper.selectCount(name, tenantId);
         
 
         PageResult<Dataset> result = new PageResult<>(
@@ -106,36 +112,37 @@ public class DatasetServiceImpl implements DatasetService {
     @Override
     public Dataset getById(Long id) {
         log.info("查询评测集详情: {}", id);
-        DatasetDO datasetDO = datasetMapper.selectById(id);
-            
+        String tenantId = getTenantId();
+        DatasetDO datasetDO = datasetMapper.selectById(id, tenantId);
+
         if (datasetDO == null) {
             log.warn("未找到ID为{}的评测集", id);
             return null;
         }
         Dataset dataset = Dataset.fromDO(datasetDO);
 
-        DatasetVersionDO datasetVersionDO = datasetVersionMapper.selectLatestVersion(dataset.getId());
+        DatasetVersionDO datasetVersionDO = datasetVersionMapper.selectLatestVersion(dataset.getId(), tenantId);
 
-        if(Objects.nonNull(datasetVersionDO)){
+        if (Objects.nonNull(datasetVersionDO)) {
             dataset.setDataCount(datasetVersionDO.getDataCount());
             dataset.setLatestVersion(datasetVersionDO.getVersion());
             dataset.setLatestVersionId(datasetVersionDO.getId());
         }
-        
+
         return dataset;
     }
 
     @Override
     public Dataset update(DatasetUpdateRequest request) {
         log.info("更新评测集: {}", request);
+        String tenantId = getTenantId();
 
-         DatasetDO existingDataset = datasetMapper.selectById(request.getDatasetId());
-         if (existingDataset == null) {
-             throw new IllegalArgumentException("评测集不存在: " + request.getDatasetId());
-         }
+        DatasetDO existingDataset = datasetMapper.selectById(request.getDatasetId(), tenantId);
+        if (existingDataset == null) {
+            throw new IllegalArgumentException("评测集不存在: " + request.getDatasetId());
+        }
 
-
-        datasetMapper.update(request.getDatasetId(),request.getName(),request.getDescription());
+        datasetMapper.update(request.getDatasetId(), tenantId, request.getName(), request.getDescription());
         existingDataset.setName(request.getName());
         existingDataset.setDescription(request.getDescription());
 
@@ -146,7 +153,8 @@ public class DatasetServiceImpl implements DatasetService {
     @Transactional
     public void deleteById(Long id) {
         log.info("删除评测集: {}", id);
-        datasetMapper.deleteById(id);
+        String tenantId = getTenantId();
+        datasetMapper.deleteById(id, tenantId);
         log.info("评测集删除成功: {}", id);
     }
 

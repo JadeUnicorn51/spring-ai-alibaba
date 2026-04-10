@@ -43,6 +43,10 @@ public class AppVersionEntity {
 	@TableField("workspace_id")
 	private String workspaceId;
 
+	/** Tenant identifier - null means platform level */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	/** Application identifier */
 	@TableField("app_id")
 	private String appId;

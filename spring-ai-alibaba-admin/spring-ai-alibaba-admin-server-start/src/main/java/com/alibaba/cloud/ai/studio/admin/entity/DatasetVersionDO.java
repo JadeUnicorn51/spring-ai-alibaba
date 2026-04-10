@@ -67,8 +67,10 @@ public class DatasetVersionDO {
      */
     private LocalDateTime updateTime;
 
-
-
+    /**
+     * 租户ID
+     */
+    private String tenantId;
 
 
 }

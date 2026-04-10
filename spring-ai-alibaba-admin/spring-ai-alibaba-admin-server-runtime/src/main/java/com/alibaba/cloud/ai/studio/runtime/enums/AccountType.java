@@ -31,7 +31,19 @@ import lombok.Getter;
 public enum AccountType {
 
 	/**
-	 * Administrator account type
+	 * Super administrator - platform level, can manage all tenants
+	 */
+	@JsonProperty("super_admin")
+	SUPER_ADMIN("super_admin"),
+
+	/**
+	 * Tenant administrator - manages resources within their own tenant
+	 */
+	@JsonProperty("tenant_admin")
+	TENANT_ADMIN("tenant_admin"),
+
+	/**
+	 * Administrator account type (legacy, maps to TENANT_ADMIN)
 	 */
 	@JsonProperty("admin")
 	ADMIN("admin"),
@@ -40,7 +52,7 @@ public enum AccountType {
 	 * Regular user account type
 	 */
 	@JsonProperty("user")
-	USER("user"),;
+	USER("user");
 
 	/**
 	 * The string value representing the account type

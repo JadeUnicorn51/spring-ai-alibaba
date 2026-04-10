@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.studio.runtime.utils.JsonUtils;
 import com.alibaba.cloud.ai.studio.core.base.service.AccountService;
 import com.alibaba.cloud.ai.studio.core.base.service.ApiKeyService;
 import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
+import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
 import com.alibaba.cloud.ai.studio.core.utils.common.IdGenerator;
 import com.alibaba.cloud.ai.studio.core.utils.LogUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -92,6 +93,7 @@ public class ApiKeyAuthInterceptor implements HandlerInterceptor {
 		RequestContext context = new RequestContext();
 		context.setRequestId(IdGenerator.uuid());
 		context.setAccountId(account.getAccountId());
+		context.setTenantId(account.getTenantId());
 		context.setUsername(account.getUsername());
 		context.setWorkspaceId(account.getDefaultWorkspaceId());
 		context.setAccountType(account.getType());
@@ -99,6 +101,7 @@ public class ApiKeyAuthInterceptor implements HandlerInterceptor {
 		context.setStartTime(System.currentTimeMillis());
 
 		RequestContextHolder.setRequestContext(context);
+		TenantContextHolder.initFromRequestContext(context);
 		return true;
 	}
 

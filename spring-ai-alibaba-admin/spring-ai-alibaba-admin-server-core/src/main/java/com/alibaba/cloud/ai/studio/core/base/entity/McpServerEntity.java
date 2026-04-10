@@ -63,6 +63,10 @@ public class McpServerEntity {
 	@TableField("workspace_id")
 	private String workspaceId;
 
+	/** Tenant identifier - null means platform level */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	@TableField("account_id")
 	private String accountId;
 

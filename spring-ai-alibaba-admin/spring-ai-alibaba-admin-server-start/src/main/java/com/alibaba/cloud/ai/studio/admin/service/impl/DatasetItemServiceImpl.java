@@ -12,6 +12,7 @@ import com.alibaba.cloud.ai.studio.admin.mapper.DatasetItemMapper;
 import com.alibaba.cloud.ai.studio.admin.mapper.DatasetVersionMapper;
 import com.alibaba.cloud.ai.studio.admin.service.DatasetItemService;
 import com.alibaba.cloud.ai.studio.admin.utils.CommonUtils;
+import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -33,10 +34,15 @@ public class DatasetItemServiceImpl implements DatasetItemService {
     @Resource
     private DatasetVersionMapper datasetVersionMapper;
 
+    private String getTenantId() {
+        return TenantContextHolder.getTenantId();
+    }
+
 
     @Override
 
     public List<DatasetItem> create(DatasetItemCreateRequest request) {
+        String tenantId = getTenantId();
         log.info("创建数据项: {}", request);
 
         List<DatasetItem> datasetItemList = request.getDataContent().stream().map(
@@ -45,6 +51,7 @@ public class DatasetItemServiceImpl implements DatasetItemService {
                             .datasetId(request.getDatasetId())
                             .dataContent(dataContent)
                             .columnsConfig(JSONObject.toJSONString(request.getColumnsConfig()))
+                            .tenantId(tenantId)
                             .build();
                     datasetItemMapper.insert(datasetItemDO);
                     return DatasetItem.fromDO(datasetItemDO);
@@ -56,6 +63,7 @@ public class DatasetItemServiceImpl implements DatasetItemService {
 
     @Override
     public List<DatasetItem> createFromTrace(DataItemCreateFromTraceRequest request) {
+        String tenantId = getTenantId();
         log.info("从Trace创建数据项: {}", request);
         List<Long> itemIds = new ArrayList<>(List.of());
 
@@ -65,6 +73,7 @@ public class DatasetItemServiceImpl implements DatasetItemService {
                             .datasetId(request.getDatasetId())
                             .dataContent(dataContent)
                             .columnsConfig(JSONObject.toJSONString(request.getColumnsConfig()))
+                            .tenantId(tenantId)
                             .build();
                     datasetItemMapper.insert(datasetItemDO);
                     itemIds.add(datasetItemDO.getId());

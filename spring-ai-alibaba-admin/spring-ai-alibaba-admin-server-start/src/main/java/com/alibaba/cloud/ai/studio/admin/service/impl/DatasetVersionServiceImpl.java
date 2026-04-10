@@ -14,6 +14,7 @@ import com.alibaba.cloud.ai.studio.admin.mapper.DatasetVersionMapper;
 import com.alibaba.cloud.ai.studio.admin.mapper.ExperimentMapper;
 import com.alibaba.cloud.ai.studio.admin.service.DatasetVersionService;
 import com.alibaba.cloud.ai.studio.admin.utils.VersionUtils;
+import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,10 +34,15 @@ public class DatasetVersionServiceImpl implements DatasetVersionService {
     private final DatasetMapper datasetMapper;
     private final ExperimentMapper experimentMapper;
 
+    private String getTenantId() {
+        return TenantContextHolder.getTenantId();
+    }
+
     @Override
     @Transactional
     public DatasetVersion create(DatasetVersionCreateRequest request) {
         log.info("Creating dataset version: {}", request);
+        String tenantId = getTenantId();
 
         // Validate request
         if (request.getDatasetId() == null) {
@@ -44,12 +50,13 @@ public class DatasetVersionServiceImpl implements DatasetVersionService {
         }
 
         //检查 dataset是否存在
-        if (datasetMapper.selectById(request.getDatasetId()) == null) {
+        if (datasetMapper.selectById(request.getDatasetId(), tenantId) == null) {
             throw new IllegalArgumentException("Dataset not found: " + request.getDatasetId());
         }
 
         // 获取当前最大的version
-        DatasetVersionDO latestDatasetVersionDO = datasetVersionMapper.selectLatestVersion(request.getDatasetId());
+        DatasetVersionDO latestDatasetVersionDO = datasetVersionMapper.selectLatestVersion(request.getDatasetId(),
+                tenantId);
 
         String currentVersion = Objects.isNull(latestDatasetVersionDO)?null:latestDatasetVersionDO.getVersion();
 
@@ -67,6 +74,7 @@ public class DatasetVersionServiceImpl implements DatasetVersionService {
                 .status(request.getStatus() != null ? request.getStatus() : "DRAFT")
                 .experiments("[]")
                 .datasetItems(request.getDatasetItems() != null ? request.getDatasetItems().toString() : "[]")
+                .tenantId(tenantId)
                 .build();
 
         // Insert into database

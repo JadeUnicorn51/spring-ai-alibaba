@@ -44,6 +44,10 @@ public class AccountEntity {
 	@TableField("account_id")
 	private String accountId;
 
+	/** Tenant identifier - null means platform level (SUPER_ADMIN) */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	/** Username for login */
 	private String username;
 

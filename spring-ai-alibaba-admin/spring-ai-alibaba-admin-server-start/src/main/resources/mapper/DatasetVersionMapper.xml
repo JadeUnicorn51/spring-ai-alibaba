@@ -4,7 +4,7 @@
 
     <!-- Dataset Version table fields -->
     <sql id="dataset_version_columns">
-        id, dataset_id, version, description, data_count, status, experiments, dataset_items, create_time, update_time
+        id, dataset_id, version, description, data_count, status, experiments, dataset_items, create_time, update_time, tenant_id
     </sql>
 
     <!-- Dataset Version entity mapping -->
@@ -19,12 +19,13 @@
         <result property="datasetItems" column="dataset_items"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
+        <result property="tenantId" column="tenant_id"/>
     </resultMap>
 
     <!-- Create dataset version -->
     <insert id="insert" parameterType="com.alibaba.cloud.ai.studio.admin.entity.DatasetVersionDO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO dataset_version (dataset_id, version, description, data_count, status, experiments, dataset_items)
-        VALUES (#{datasetId}, #{version}, #{description}, #{dataCount}, #{status}, #{experiments}, #{datasetItems})
+        INSERT INTO dataset_version (dataset_id, version, description, data_count, status, experiments, dataset_items, tenant_id)
+        VALUES (#{datasetId}, #{version}, #{description}, #{dataCount}, #{status}, #{experiments}, #{datasetItems}, #{tenantId})
     </insert>
 
     <!-- Delete dataset version by ID -->
@@ -99,7 +100,7 @@
     <select id="selectLatestVersion" resultMap="datasetVersionResultMap">
         SELECT *
         FROM dataset_version
-        WHERE dataset_id = #{datasetId}
+        WHERE dataset_id = #{datasetId} AND tenant_id = #{tenantId}
         ORDER BY create_time DESC
         LIMIT 1
     </select>

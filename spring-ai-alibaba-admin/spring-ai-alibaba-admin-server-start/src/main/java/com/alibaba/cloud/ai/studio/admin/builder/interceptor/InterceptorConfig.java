@@ -31,6 +31,9 @@ public class InterceptorConfig implements WebMvcConfigurer {
 	/** Interceptor for token-based authentication */
 	private final TokenAuthInterceptor tokenAuthInterceptor;
 
+	/** Interceptor for platform administrator authentication */
+	private final AdminTokenAuthInterceptor adminTokenAuthInterceptor;
+
 	/** Interceptor for API key authentication */
 	private final ApiKeyAuthInterceptor apiKeyAuthInterceptor;
 
@@ -40,6 +43,13 @@ public class InterceptorConfig implements WebMvcConfigurer {
 	 */
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
+		// Platform admin routes - SUPER_ADMIN only
+		registry.addInterceptor(adminTokenAuthInterceptor)
+			.addPathPatterns("/admin/v1/**")
+			.excludePathPatterns("/admin/v1/auth/login", "/admin/v1/auth/refresh-token")
+			.excludePathPatterns("/swagger-ui/**", "/v3/api-docs/**");
+
+		// Tenant console routes - TENANT_ADMIN and USER
 		registry.addInterceptor(tokenAuthInterceptor)
 			.addPathPatterns("/console/v1/**")
 			.addPathPatterns("/starter.zip")
@@ -47,6 +57,7 @@ public class InterceptorConfig implements WebMvcConfigurer {
 			.excludePathPatterns("/swagger-ui/**", "/v3/api-docs/**")
 			.excludePathPatterns("/test/**");
 
+		// OpenAPI routes - API key authentication
 		registry.addInterceptor(apiKeyAuthInterceptor).addPathPatterns("/api/v1/**");
 	}
 

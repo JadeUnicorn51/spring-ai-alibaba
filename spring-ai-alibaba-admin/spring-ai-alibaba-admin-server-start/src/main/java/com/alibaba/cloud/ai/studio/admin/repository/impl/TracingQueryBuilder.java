@@ -26,10 +26,26 @@ public class TracingQueryBuilder {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
+     * 添加租户过滤条件
+     */
+    private void addTenantFilter(BoolQuery.Builder boolQueryBuilder, String tenantId) {
+        if (StringUtils.hasText(tenantId)) {
+            Query tenantQuery = Query.of(q -> q.term(t -> t
+                .field("tenant_id")
+                .value(tenantId)
+            ));
+            boolQueryBuilder.filter(tenantQuery);
+        }
+    }
+
+    /**
      * 构建Traces查询请求
      */
-    public SearchRequest buildTracesQuery(TracesQueryRequest request) {
+    public SearchRequest buildTracesQuery(TracesQueryRequest request, String tenantId) {
         BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+
+        // 租户过滤
+        addTenantFilter(boolQueryBuilder, tenantId);
 
         // 时间范围过滤 - 使用微秒时间戳
         if (StringUtils.hasText(request.getStartTime()) && StringUtils.hasText(request.getEndTime())) {
@@ -103,16 +119,22 @@ public class TracingQueryBuilder {
     /**
      * 构建Trace详情查询请求
      */
-    public SearchRequest buildTraceDetailQuery(String traceId) {
-        // 修正：使用 metadata.traceID 字段查询
+    public SearchRequest buildTraceDetailQuery(String traceId, String tenantId) {
+        BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+
+        // 租户过滤
+        addTenantFilter(boolQueryBuilder, tenantId);
+
+        // Trace ID过滤
         Query traceQuery = Query.of(q -> q.term(t -> t
             .field("metadata.traceID")
             .value(traceId)
         ));
-        
+        boolQueryBuilder.filter(traceQuery);
+
         return SearchRequest.of(s -> s
             .index(TRACES_INDEX)
-            .query(traceQuery)
+            .query(Query.of(q -> q.bool(boolQueryBuilder.build())))
             .size(1000)
             .sort(sort -> sort.field(f -> f.field("metadata.start").order(SortOrder.Asc)))
         );
@@ -121,7 +143,34 @@ public class TracingQueryBuilder {
     /**
      * 构建服务查询请求
      */
-    public SearchRequest buildServicesQuery(ServicesQueryRequest request) {
+    public SearchRequest buildServicesQuery(ServicesQueryRequest request, String tenantId) {
+        BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+
+        // 租户过滤
+        addTenantFilter(boolQueryBuilder, tenantId);
+
+        // 时间范围过滤 - 使用微秒时间戳
+        if (StringUtils.hasText(request.getStartTime()) && StringUtils.hasText(request.getEndTime())) {
+            try {
+                Long startTimeMicros = convertISO8601ToMicroseconds(request.getStartTime());
+                Long endTimeMicros = convertISO8601ToMicroseconds(request.getEndTime());
+
+                if (startTimeMicros != null && endTimeMicros != null) {
+                    String rangeQueryJson = String.format(
+                        "{\"range\":{\"metadata.start\":{\"gte\":%d,\"lte\":%d}}}",
+                        startTimeMicros, endTimeMicros
+                    );
+
+                    Query timeRangeQuery = Query.of(q -> q
+                        .withJson(new java.io.ByteArrayInputStream(rangeQueryJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                    );
+                    boolQueryBuilder.filter(timeRangeQuery);
+                }
+            } catch (Exception e) {
+                log.error("构建服务查询时间范围失败", e);
+            }
+        }
+
         // 构建聚合
         Map<String, Aggregation> aggregations = new HashMap<>();
         aggregations.put("services", Aggregation.of(a -> a
@@ -134,34 +183,8 @@ public class TracingQueryBuilder {
         SearchRequest.Builder searchBuilder = new SearchRequest.Builder()
             .index(TRACES_INDEX)
             .size(0)
+            .query(Query.of(q -> q.bool(boolQueryBuilder.build())))
             .aggregations(aggregations);
-
-        // 时间范围过滤 - 使用微秒时间戳
-        if (StringUtils.hasText(request.getStartTime()) && StringUtils.hasText(request.getEndTime())) {
-            try {
-                // 将ISO8601时间转换为微秒时间戳
-                Long startTimeMicros = convertISO8601ToMicroseconds(request.getStartTime());
-                Long endTimeMicros = convertISO8601ToMicroseconds(request.getEndTime());
-                
-                if (startTimeMicros != null && endTimeMicros != null) {
-                    // 使用 withJson 方法构建查询
-                    String rangeQueryJson = String.format(
-                        "{\"range\":{\"metadata.start\":{\"gte\":%d,\"lte\":%d}}}",
-                        startTimeMicros, endTimeMicros
-                    );
-                    
-                    Query timeRangeQuery = Query.of(q -> q
-                        .withJson(new java.io.ByteArrayInputStream(rangeQueryJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
-                    );
-                    
-                    searchBuilder.query(timeRangeQuery);
-                    log.debug("添加服务查询时间范围过滤: {} - {} (微秒: {} - {})", 
-                        request.getStartTime(), request.getEndTime(), startTimeMicros, endTimeMicros);
-                }
-            } catch (Exception e) {
-                log.error("构建服务查询时间范围失败", e);
-            }
-        }
 
         return searchBuilder.build();
     }
@@ -169,10 +192,36 @@ public class TracingQueryBuilder {
     /**
      * 构建概览查询请求
      */
-    public SearchRequest buildOverviewQuery(OverviewQueryRequest request) {
+    public SearchRequest buildOverviewQuery(OverviewQueryRequest request, String tenantId) {
+        BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+
+        // 租户过滤
+        addTenantFilter(boolQueryBuilder, tenantId);
+
+        // 时间范围过滤 - 使用微秒时间戳
+        if (StringUtils.hasText(request.getStartTime()) && StringUtils.hasText(request.getEndTime())) {
+            try {
+                Long startTimeMicros = convertISO8601ToMicroseconds(request.getStartTime());
+                Long endTimeMicros = convertISO8601ToMicroseconds(request.getEndTime());
+
+                if (startTimeMicros != null && endTimeMicros != null) {
+                    String rangeQueryJson = String.format(
+                        "{\"range\":{\"metadata.start\":{\"gte\":%d,\"lte\":%d}}}",
+                        startTimeMicros, endTimeMicros
+                    );
+
+                    Query timeRangeQuery = Query.of(q -> q
+                        .withJson(new java.io.ByteArrayInputStream(rangeQueryJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                    );
+                    boolQueryBuilder.filter(timeRangeQuery);
+                }
+            } catch (Exception e) {
+                log.error("构建概览查询时间范围失败", e);
+            }
+        }
+
         Map<String, Aggregation> aggregations = new HashMap<>();
 
-        // 根据API文档修正聚合字段
         // 1. 操作类型统计
         aggregations.put("operation_count", Aggregation.of(a -> a
             .terms(t -> t.field("attributes.gen_ai.operation.name").size(1000).missing("generic"))
@@ -200,34 +249,8 @@ public class TracingQueryBuilder {
         SearchRequest.Builder searchBuilder = new SearchRequest.Builder()
             .index(TRACES_INDEX)
             .size(0)
+            .query(Query.of(q -> q.bool(boolQueryBuilder.build())))
             .aggregations(aggregations);
-
-        // 时间范围过滤 - 使用微秒时间戳
-        if (StringUtils.hasText(request.getStartTime()) && StringUtils.hasText(request.getEndTime())) {
-            try {
-                // 将ISO8601时间转换为微秒时间戳
-                Long startTimeMicros = convertISO8601ToMicroseconds(request.getStartTime());
-                Long endTimeMicros = convertISO8601ToMicroseconds(request.getEndTime());
-                
-                if (startTimeMicros != null && endTimeMicros != null) {
-                    // 使用 withJson 方法构建查询
-                    String rangeQueryJson = String.format(
-                        "{\"range\":{\"metadata.start\":{\"gte\":%d,\"lte\":%d}}}",
-                        startTimeMicros, endTimeMicros
-                    );
-                    
-                    Query timeRangeQuery = Query.of(q -> q
-                        .withJson(new java.io.ByteArrayInputStream(rangeQueryJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
-                    );
-                    
-                    searchBuilder.query(timeRangeQuery);
-                    log.debug("添加概览查询时间范围过滤: {} - {} (微秒: {} - {})", 
-                        request.getStartTime(), request.getEndTime(), startTimeMicros, endTimeMicros);
-                }
-            } catch (Exception e) {
-                log.error("构建概览查询时间范围失败", e);
-            }
-        }
 
         return searchBuilder.build();
     }

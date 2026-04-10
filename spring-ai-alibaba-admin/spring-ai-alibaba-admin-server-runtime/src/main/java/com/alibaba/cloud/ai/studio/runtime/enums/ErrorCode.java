@@ -159,6 +159,8 @@ public enum ErrorCode {
 
 	WORKSPACE_NOT_FOUND(404, RESPONSE_ERROR, "WorkspaceNotFound", "Workspace can not be found."),
 
+	TENANT_NOT_FOUND(404, RESPONSE_ERROR, "TenantNotFound", "Tenant can not be found."),
+
 	WORKSPACE_ACCESS_DENIED(403, RESPONSE_ERROR, "WorkspaceAccessDenied", "Workspace access denied."),
 
 	WORKSPACE_DELETION_FORBIDDEN(403, RESPONSE_ERROR, "WorkspaceDeletionForbidden",

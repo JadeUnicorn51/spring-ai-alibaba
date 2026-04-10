@@ -50,4 +50,9 @@ public class DatasetDO {
      */
     private Integer deleted;
 
+    /**
+     * 租户ID
+     */
+    private String tenantId;
+
 }

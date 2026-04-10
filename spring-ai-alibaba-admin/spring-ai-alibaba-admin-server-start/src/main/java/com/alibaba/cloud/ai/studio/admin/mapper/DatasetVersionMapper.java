@@ -97,5 +97,5 @@ public interface DatasetVersionMapper {
 
 
 
-    DatasetVersionDO selectLatestVersion(@Param("datasetId") Long datasetId);
+    DatasetVersionDO selectLatestVersion(@Param("datasetId") Long datasetId, @Param("tenantId") String tenantId);
 }

@@ -51,6 +51,10 @@ public class AppComponentEntity {
 	@TableField("workspace_id")
 	private String workspaceId;
 
+	/** Tenant identifier - null means platform level */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	private String type;
 
 	@TableField("app_id")

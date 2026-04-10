@@ -45,6 +45,10 @@ public class DocumentEntity {
 	@TableField("workspace_id")
 	private String workspaceId;
 
+	/** Tenant identifier - null means platform level */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	/** Knowledge base identifier */
 	@TableField("kb_id")
 	private String kbId;

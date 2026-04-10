@@ -44,6 +44,10 @@ public class WorkspaceEntity {
 	@TableField("workspace_id")
 	private String workspaceId;
 
+	/** Tenant identifier - null means platform level */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	/** Current status of the workspace */
 	private CommonStatus status;
 

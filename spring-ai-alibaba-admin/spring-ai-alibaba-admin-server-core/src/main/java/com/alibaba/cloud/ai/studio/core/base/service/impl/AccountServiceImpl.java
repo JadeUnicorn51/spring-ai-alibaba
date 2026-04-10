@@ -313,7 +313,7 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 	@Override
 	public String createAccount(Account account) {
 		RequestContext context = RequestContextHolder.getRequestContext();
-		checkAdminPermission(context.getAccountId());
+		AccountEntity operator = checkAdminPermission(context.getAccountId());
 
 		// check if account name exists
 		AccountEntity accountEntity = getAccountByName(account.getUsername());
@@ -326,7 +326,10 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		AccountEntity entity = BeanCopierUtils.copy(account, AccountEntity.class);
 		entity.setAccountId(accountId);
 		entity.setStatus(AccountStatus.NORMAL);
-		entity.setType(AccountType.USER);
+		AccountType targetType = resolveTargetAccountType(operator, account);
+		String targetTenantId = resolveTargetTenantId(operator, account, targetType);
+		entity.setType(targetType);
+		entity.setTenantId(targetTenantId);
 		entity.setPassword(PasswordCryptUtils.encode(account.getPassword()));
 		entity.setEmail(account.getEmail());
 		entity.setMobile(account.getMobile());
@@ -596,15 +599,52 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 	 * Verifies admin permissions
 	 * @param accountId Account ID to check
 	 */
-	private void checkAdminPermission(String accountId) {
+	private AccountEntity checkAdminPermission(String accountId) {
 		AccountEntity entity = getAccountById(accountId);
 		if (entity == null) {
 			throw new BizException(ErrorCode.ACCOUNT_NOT_FOUND.toError());
 		}
 
-		if (AccountType.ADMIN != entity.getType()) {
+		if (entity.getType() != AccountType.SUPER_ADMIN
+				&& entity.getType() != AccountType.TENANT_ADMIN
+				&& entity.getType() != AccountType.ADMIN) {
 			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
 		}
+
+		return entity;
+	}
+
+	private AccountType resolveTargetAccountType(AccountEntity operator, Account account) {
+		if (operator.getType() == AccountType.SUPER_ADMIN) {
+			return account.getType() == null ? AccountType.USER : account.getType();
+		}
+
+		// Tenant-level admins can only create regular users.
+		if (account.getType() != null && account.getType() != AccountType.USER) {
+			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+		return AccountType.USER;
+	}
+
+	private String resolveTargetTenantId(AccountEntity operator, Account account, AccountType targetType) {
+		if (targetType == AccountType.SUPER_ADMIN) {
+			if (StringUtils.isNotBlank(account.getTenantId())) {
+				throw new BizException(ErrorCode.INVALID_PARAMS.toError("tenant_id", "must be empty for super admin"));
+			}
+			return null;
+		}
+
+		if (operator.getType() == AccountType.SUPER_ADMIN) {
+			if (StringUtils.isBlank(account.getTenantId())) {
+				throw new BizException(ErrorCode.MISSING_PARAMS.toError("tenant_id"));
+			}
+			return account.getTenantId();
+		}
+
+		if (StringUtils.isBlank(operator.getTenantId())) {
+			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+		return operator.getTenantId();
 	}
 
 	/**

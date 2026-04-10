@@ -40,6 +40,10 @@ public class ApiKeyEntity {
 	@TableField("account_id")
 	private String accountId;
 
+	/** Tenant identifier - null means platform level */
+	@TableField("tenant_id")
+	private String tenantId;
+
 	/** The API key value */
 	@TableField("api_key")
 	private String apiKey;
