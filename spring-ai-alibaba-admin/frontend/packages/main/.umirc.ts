@@ -23,6 +23,7 @@ export default defineConfig({
     {
       path: '/admin',
       routes: [
+        { path: '/admin/tenants', component: '@/pages/Admin/Tenant/index' },
         { path: '/admin', component: '@/legacy/pages/index' },
         { path: '/admin/playground', component: '@/legacy/pages/playground/playground' },
         { path: '/admin/prompts', component: '@/legacy/pages/prompts/prompts' },
@@ -186,6 +187,10 @@ export default defineConfig({
       changeOrigin: true,
     },
     '/console': {
+      target: process.env.WEB_SERVER || 'http://localhost:8080',
+      changeOrigin: true,
+    },
+    '/admin/v1': {
       target: process.env.WEB_SERVER || 'http://localhost:8080',
       changeOrigin: true,
     },

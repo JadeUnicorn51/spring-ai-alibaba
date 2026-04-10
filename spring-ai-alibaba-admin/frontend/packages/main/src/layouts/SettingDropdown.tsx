@@ -1,4 +1,5 @@
 import $i18n from '@/i18n';
+import { isAdminAccountType } from '@/utils/accountType';
 import { Dropdown, IconButton } from '@spark-ai/design';
 import type { MenuProps } from 'antd';
 import React from 'react';
@@ -30,7 +31,7 @@ const menuItems: MenuProps['items'] = [
 
 const SettingDropdown: React.FC = () => {
   const navigate = useNavigate();
-  const isAdmin = window.g_config.user?.type === 'admin';
+  const isAdmin = isAdminAccountType(window.g_config.user?.type);
 
   const handleMenuClick: MenuProps['onClick'] = (e) => {
     navigate(e.key);

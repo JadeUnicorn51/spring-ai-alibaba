@@ -1,6 +1,7 @@
 import $i18n from '@/i18n';
 import { authLogout } from '@/services/login';
 import { IAccount, USER_TYPE } from '@/types/account';
+import { isAdminAccountType } from '@/utils/accountType';
 import { Avatar, Button, Form, Input, Modal, Tag } from '@spark-ai/design';
 import { Flex } from 'antd';
 import React, { useEffect } from 'react';
@@ -83,8 +84,8 @@ const AccountModal: React.FC<AccountModalProps> = ({
               })}
             </Button>
           </Flex>
-          <Tag color={userInfo.type === 'admin' ? 'purple' : 'mauve'}>
-            {USER_TYPE[userInfo.type as keyof typeof USER_TYPE]}
+          <Tag color={isAdminAccountType(userInfo.type) ? 'purple' : 'mauve'}>
+            {USER_TYPE[userInfo.type as keyof typeof USER_TYPE] || userInfo.type}
           </Tag>
         </div>
       </div>

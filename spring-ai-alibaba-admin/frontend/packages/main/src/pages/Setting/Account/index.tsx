@@ -2,6 +2,7 @@ import InnerLayout from '@/components/InnerLayout';
 import $i18n from '@/i18n';
 import { deleteAccount, getAccountList } from '@/services/account';
 import type { IAccount } from '@/types/account';
+import { isAdminAccountType } from '@/utils/accountType';
 import {
   AlertDialog,
   Button,
@@ -25,7 +26,7 @@ export default function Account() {
   const [pageSize, setPageSize] = useState<number>(10);
   const [total, setTotal] = useState<number>(0);
 
-  const isAdmin = window.g_config.user?.type === 'admin';
+  const isAdmin = isAdminAccountType(window.g_config.user?.type);
 
   useEffect(() => {
     fetchData();
@@ -107,8 +108,8 @@ export default function Account() {
       dataIndex: 'type',
       key: 'type',
       render: (type) => (
-        <Tag color={type === 'admin' ? 'purple' : 'default'}>
-          {type === 'admin'
+        <Tag color={isAdminAccountType(type) ? 'purple' : 'default'}>
+          {isAdminAccountType(type)
             ? $i18n.get({
                 id: 'main.pages.Setting.Account.index.admin',
                 dm: '管理员',

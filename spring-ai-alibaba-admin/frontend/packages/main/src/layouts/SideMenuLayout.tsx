@@ -17,6 +17,7 @@ import {
   DatabaseOutlined,
   ToolOutlined,
   SwapOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import $i18n from '@/i18n';
 import Header from './Header';
@@ -72,6 +73,11 @@ const getSelectedMenuKey = (pathname: string): string => {
   // Agent Schema 页面
   if (pathname.startsWith('/agent-schema')) {
     return '/agent-schema';
+  }
+
+  // 平台租户管理页面
+  if (pathname.startsWith('/admin/tenants')) {
+    return '/admin/tenants';
   }
 
   // 评测集相关页面
@@ -184,6 +190,18 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
               dm: 'Dify To Graph',
             }),
             icon: <SwapOutlined />,
+          },
+        ],
+      },
+      {
+        key: 'platform',
+        label: '平台治理',
+        icon: <TeamOutlined />,
+        children: [
+          {
+            key: '/admin/tenants',
+            label: '租户管理',
+            icon: <TeamOutlined />,
           },
         ],
       },
@@ -306,7 +324,7 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
               <Menu
                 mode="inline"
                 selectedKeys={[selectedKey]}
-                defaultOpenKeys={collapsed ? [] : ['studio']}
+                defaultOpenKeys={collapsed ? [] : ['studio', 'platform']}
                 items={menuItems}
                 onClick={handleMenuClick}
                 className="border-r-0 mt-6"
@@ -351,4 +369,3 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
     </PureLayout>
   );
 }
-

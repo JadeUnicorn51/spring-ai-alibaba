@@ -2,6 +2,14 @@ import $i18n from '@/i18n';
 
 // User types mapping
 export const USER_TYPE = {
+  super_admin: $i18n.get({
+    id: 'main.types.account.superAdministrator',
+    dm: '平台管理员',
+  }),
+  tenant_admin: $i18n.get({
+    id: 'main.types.account.tenantAdministrator',
+    dm: '租户管理员',
+  }),
   admin: $i18n.get({
     id: 'main.types.account.administrator',
     dm: '管理员',
@@ -34,9 +42,10 @@ export interface IChangePasswordParams {
 // Account information structure
 export interface IAccount {
   account_id: string;
+  tenant_id?: string;
   username: string;
   email: string;
-  type: keyof typeof USER_TYPE;
+  type: keyof typeof USER_TYPE | string;
   logo?: string;
 }
 

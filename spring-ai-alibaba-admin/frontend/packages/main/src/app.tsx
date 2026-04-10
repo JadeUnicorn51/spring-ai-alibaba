@@ -39,6 +39,10 @@ export function onRouteChange({ clientRoutes, location }) {
       id: 'main.pages.Setting.ModelService.Detail.setting',
       dm: '设置',
     }),
+    '/admin/tenants': $i18n.get({
+      id: 'main.pages.Admin.Tenant.title',
+      dm: '租户管理',
+    }),
     '/login': $i18n.get({
       id: 'main.pages.Login.components.Register.index.login',
       dm: '登录',
