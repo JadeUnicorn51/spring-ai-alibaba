@@ -17,7 +17,10 @@
 package com.alibaba.cloud.ai.studio.core.base.mapper;
 
 import com.alibaba.cloud.ai.studio.core.base.entity.AccountEntity;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * Mapper interface for account-related database operations. Extends BaseMapper to provide
@@ -26,5 +29,15 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  * @since 1.0.0.3
  */
 public interface AccountMapper extends BaseMapper<AccountEntity> {
+
+	@InterceptorIgnore(tenantLine = "true")
+	@Select("SELECT * FROM account WHERE username = #{username} AND status <> #{deletedStatus} LIMIT 1")
+	AccountEntity selectByUsernameIgnoreTenant(@Param("username") String username,
+			@Param("deletedStatus") Integer deletedStatus);
+
+	@InterceptorIgnore(tenantLine = "true")
+	@Select("SELECT * FROM account WHERE account_id = #{accountId} AND status <> #{deletedStatus} LIMIT 1")
+	AccountEntity selectByAccountIdIgnoreTenant(@Param("accountId") String accountId,
+			@Param("deletedStatus") Integer deletedStatus);
 
 }

@@ -535,6 +535,10 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 	 * @return Account entity
 	 */
 	private AccountEntity getAccountByName(String username) {
+		if (shouldBypassTenantForAccountLookup()) {
+			return this.baseMapper.selectByUsernameIgnoreTenant(username, AccountStatus.DELETED.getStatus());
+		}
+
 		LambdaQueryWrapper<AccountEntity> queryWrapper = new LambdaQueryWrapper<>();
 		queryWrapper.eq(AccountEntity::getUsername, username)
 			.ne(AccountEntity::getStatus, AccountStatus.DELETED.getStatus());
@@ -558,19 +562,23 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 			return entity;
 		}
 
-		LambdaQueryWrapper<AccountEntity> queryWrapper = new LambdaQueryWrapper<>();
-		queryWrapper.eq(AccountEntity::getAccountId, accountId)
-			.ne(AccountEntity::getStatus, AccountStatus.DELETED.getStatus());
+		if (shouldBypassTenantForAccountLookup()) {
+			entity = this.baseMapper.selectByAccountIdIgnoreTenant(accountId, AccountStatus.DELETED.getStatus());
+		}
+		else {
+			LambdaQueryWrapper<AccountEntity> queryWrapper = new LambdaQueryWrapper<>();
+			queryWrapper.eq(AccountEntity::getAccountId, accountId)
+				.ne(AccountEntity::getStatus, AccountStatus.DELETED.getStatus());
+			Optional<AccountEntity> entityOptional = this.getOneOpt(queryWrapper);
+			entity = entityOptional.orElse(null);
+		}
 
-		Optional<AccountEntity> entityOptional = this.getOneOpt(queryWrapper);
-		if (entityOptional.isEmpty()) {
+		if (entity == null) {
 			entity = new AccountEntity();
 			entity.setId(CACHE_EMPTY_ID);
 			redisManager.put(key, entity, CacheConstants.CACHE_EMPTY_TTL);
 			return null;
 		}
-
-		entity = entityOptional.get();
 
 		// get default workspace
 		Workspace workspace = workspaceService.getDefaultWorkspace(accountId);
@@ -581,6 +589,11 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		entity.setDefaultWorkspaceId(workspace.getWorkspaceId());
 		redisManager.put(key, entity);
 		return entity;
+	}
+
+	private boolean shouldBypassTenantForAccountLookup() {
+		RequestContext context = RequestContextHolder.getRequestContext();
+		return context == null || StringUtils.isBlank(context.getTenantId());
 	}
 
 	/**

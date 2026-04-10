@@ -79,16 +79,6 @@ public class MybatisPlusConfig {
 
         @Override
         public Expression getTenantId() {
-            // Skip tenant filter for requests without auth context (e.g. login).
-            if (RequestContextHolder.getRequestContext() == null) {
-                return null;
-            }
-
-            // Skip if platform level (SUPER_ADMIN)
-            if (TenantContextHolder.isPlatformLevel()) {
-                return null;
-            }
-
             String tenantId = TenantContextHolder.getTenantId();
             if (tenantId == null) {
                 throw new IllegalStateException("Tenant context is missing for non-platform request");
@@ -104,6 +94,21 @@ public class MybatisPlusConfig {
 
         @Override
         public boolean ignoreTable(String tableName) {
+            // Skip tenant filtering for requests without context (e.g. login/public endpoints).
+            if (RequestContextHolder.getRequestContext() == null) {
+                return true;
+            }
+
+            // Platform-level requests should not be tenant-filtered.
+            if (TenantContextHolder.isPlatformLevel()) {
+                return true;
+            }
+
+            // No tenant in context means this is not a tenant-scoped request.
+            if (TenantContextHolder.getTenantId() == null) {
+                return true;
+            }
+
             if (tableName == null) {
                 return false;
             }
