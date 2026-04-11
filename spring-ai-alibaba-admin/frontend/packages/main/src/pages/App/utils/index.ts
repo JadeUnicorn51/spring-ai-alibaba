@@ -85,7 +85,13 @@ const generateAgentConfig = () => {
   return {
     instructions: '', // system prompt
     tools: {}, // plugin tools
-    file_search: {},
+    file_search: {
+      kb_ids: [],
+      enable_search: false,
+      enable_citation: false,
+      top_k: 3,
+      similarity_threshold: 0.2,
+    },
     mcp_servers: [], // mcp servers
     agent_components: [], // agent components
     workflow_components: [], // workflow components

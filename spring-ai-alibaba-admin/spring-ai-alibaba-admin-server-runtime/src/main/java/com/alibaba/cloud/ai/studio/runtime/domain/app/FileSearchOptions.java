@@ -17,6 +17,8 @@
 package com.alibaba.cloud.ai.studio.runtime.domain.app;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -37,6 +39,10 @@ import java.util.List;
 @NoArgsConstructor
 public class FileSearchOptions implements Serializable {
 
+	public static final int DEFAULT_TOP_K = 3;
+
+	public static final float DEFAULT_SIMILARITY_THRESHOLD = 0.2f;
+
 	/** List of knowledge base IDs to search in */
 	@JsonProperty("kb_ids")
 	private List<String> kbIds;
@@ -48,11 +54,14 @@ public class FileSearchOptions implements Serializable {
 
 	/** Whether to enable citation in search results */
 	@JsonProperty("enable_citation")
-	private Boolean enableCitation;
+	@Builder.Default
+	private Boolean enableCitation = false;
 
 	/** Number of top results to return, default to 3 */
 	@JsonProperty("top_k")
-	private Integer topK;
+	@JsonSetter(nulls = Nulls.SKIP)
+	@Builder.Default
+	private Integer topK = DEFAULT_TOP_K;
 
 	/** Maximum length of retrieved content */
 	@JsonProperty("retrieve_max_length")
@@ -60,11 +69,15 @@ public class FileSearchOptions implements Serializable {
 
 	/** Minimum similarity threshold for search results, default to 0.2 */
 	@JsonProperty("similarity_threshold")
-	private Float similarityThreshold;
+	@JsonSetter(nulls = Nulls.SKIP)
+	@Builder.Default
+	private Float similarityThreshold = DEFAULT_SIMILARITY_THRESHOLD;
 
 	/** Weight for hybrid search algorithm, default to 0.7 */
 	@JsonProperty("hybrid_weight")
-	private Float hybridWeight;
+	@JsonSetter(nulls = Nulls.SKIP)
+	@Builder.Default
+	private Float hybridWeight = 0.7f;
 
 	/** Type of search to perform (e.g., "hybrid") */
 	@JsonProperty("search_type")

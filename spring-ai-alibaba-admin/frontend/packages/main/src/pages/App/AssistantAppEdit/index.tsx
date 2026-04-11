@@ -78,6 +78,31 @@ export const queryKnowledgeListByCode = (
   return getKnowledgeListByCodes(list);
 };
 
+const DEFAULT_FILE_SEARCH_CONFIG: NonNullable<IAssistantConfig['file_search']> =
+  {
+    kb_ids: [],
+    enable_search: false,
+    enable_citation: false,
+    top_k: 3,
+    similarity_threshold: 0.2,
+  };
+
+const normalizeFileSearchConfig = (
+  fileSearch?: IAssistantConfigWithInfos['file_search'],
+): NonNullable<IAssistantConfigWithInfos['file_search']> => {
+  return {
+    ...DEFAULT_FILE_SEARCH_CONFIG,
+    ...fileSearch,
+    kb_ids: fileSearch?.kb_ids || [],
+    enable_search: fileSearch?.enable_search ?? false,
+    enable_citation: fileSearch?.enable_citation ?? false,
+    top_k: fileSearch?.top_k ?? DEFAULT_FILE_SEARCH_CONFIG.top_k,
+    similarity_threshold:
+      fileSearch?.similarity_threshold ??
+      DEFAULT_FILE_SEARCH_CONFIG.similarity_threshold,
+  };
+};
+
 export const transformAppData = (
   cacheAppDetailWithInfo: IAssistantConfigWithInfos,
 ): IAssistantConfig => {
@@ -89,6 +114,7 @@ export const transformAppData = (
     workflow_components,
     ...extraConfig
   } = cacheAppDetailWithInfo;
+  const normalizedFileSearch = normalizeFileSearchConfig(file_search);
   const newAppConfig = {
     ...extraConfig,
     model: extraConfig.model?.model_id,
@@ -97,8 +123,11 @@ export const transformAppData = (
     agent_components: agent_components?.map((item) => item.code) || [],
     workflow_components: workflow_components?.map((item) => item.code) || [],
     file_search: {
-      ...file_search,
-      kb_ids: file_search?.kbs?.map((item) => item.kb_id) || [],
+      ...normalizedFileSearch,
+      kb_ids:
+        normalizedFileSearch.kbs?.map((item) => item.kb_id) ||
+        normalizedFileSearch.kb_ids ||
+        [],
       kbs: undefined,
     },
   };
@@ -196,6 +225,9 @@ export default function AssistantAppEdit() {
     const knowledgeBaseList = await queryKnowledgeListByCode(
       appDetail.config.file_search?.kb_ids,
     );
+    const normalizedFileSearch = normalizeFileSearchConfig(
+      appDetail.config.file_search,
+    );
     const detailWithInfos: IAssistantAppDetailWithInfos = {
       ...appDetail,
       config: {
@@ -206,7 +238,7 @@ export default function AssistantAppEdit() {
         workflow_components,
         model,
         file_search: {
-          ...appDetail.config.file_search,
+          ...normalizedFileSearch,
           kbs: knowledgeBaseList,
         },
       },
@@ -423,9 +455,11 @@ export default function AssistantAppEdit() {
     if (config.file_search?.enable_search) {
       handle.file_search = {
         enable_search: config.file_search.enable_search,
-        enable_citation: config.file_search.enable_citation,
-        top_k: config.file_search.top_k,
-        similarity_threshold: config.file_search.similarity_threshold,
+        enable_citation: config.file_search.enable_citation ?? false,
+        top_k: config.file_search.top_k ?? DEFAULT_FILE_SEARCH_CONFIG.top_k,
+        similarity_threshold:
+          config.file_search.similarity_threshold ??
+          DEFAULT_FILE_SEARCH_CONFIG.similarity_threshold,
         kb_ids: config.file_search.kb_ids || [],
       };
     }

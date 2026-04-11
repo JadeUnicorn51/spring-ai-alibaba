@@ -16,6 +16,14 @@ import styles from './index.module.less';
 export const KNOWLEDGE_BASE_MAX_LIMIT =
   defaultSettings.agentKnowledgeBaseMaxLimit;
 
+const DEFAULT_FILE_SEARCH_CONFIG = {
+  kb_ids: [] as string[],
+  enable_search: false,
+  enable_citation: false,
+  top_k: 3,
+  similarity_threshold: 0.2,
+};
+
 export function SelectedKnowledgeBaseItem({
   item,
   handleRemoveKnowledge,
@@ -45,7 +53,18 @@ export function SelectedKnowledgeBaseItem({
 export default function KnowledgeBaseSelectorComp() {
   const { appState, onAppConfigChange } = useContext(AssistantAppContext);
   const { file_search } = appState.appBasicConfig?.config || {};
-  const { kbs = [] } = file_search || {};
+  const normalizedFileSearch = {
+    ...DEFAULT_FILE_SEARCH_CONFIG,
+    ...file_search,
+    kb_ids: file_search?.kb_ids || [],
+    enable_search: file_search?.enable_search ?? false,
+    enable_citation: file_search?.enable_citation ?? false,
+    top_k: file_search?.top_k ?? DEFAULT_FILE_SEARCH_CONFIG.top_k,
+    similarity_threshold:
+      file_search?.similarity_threshold ??
+      DEFAULT_FILE_SEARCH_CONFIG.similarity_threshold,
+  };
+  const { kbs = [] } = normalizedFileSearch;
   const [state, setState] = useSetState({
     expand: false,
     selectVisible: false,
@@ -54,9 +73,10 @@ export default function KnowledgeBaseSelectorComp() {
   const onSelectKnowledges = (kbs: IKnowledgeListItem[]) => {
     onAppConfigChange({
       file_search: {
-        ...appState.appBasicConfig?.config.file_search,
+        ...normalizedFileSearch,
         kbs,
-        enable_search: kbs.length > 0 ? file_search?.enable_search : false,
+        kb_ids: kbs.map((item) => item.kb_id),
+        enable_search: kbs.length > 0 ? normalizedFileSearch.enable_search : false,
       },
     });
     setState({ selectVisible: false });
@@ -96,10 +116,9 @@ export default function KnowledgeBaseSelectorComp() {
           <Switch
             size="small"
             className="ml-[8px]"
-            checked={file_search?.enable_search}
+            checked={normalizedFileSearch.enable_search}
             onChange={(val) => {
               const prompt = appState.appBasicConfig?.config.instructions || '';
-              const file_search = appState.appBasicConfig?.config.file_search;
               if (val && !prompt.includes('${documents}')) {
                 promptEventBus.emit(
                   'insertPromptFragment',
@@ -107,7 +126,7 @@ export default function KnowledgeBaseSelectorComp() {
                 );
               }
               onAppConfigChange({
-                file_search: { ...file_search, enable_search: val },
+                file_search: { ...normalizedFileSearch, enable_search: val },
               });
             }}
           ></Switch>
@@ -119,7 +138,7 @@ export default function KnowledgeBaseSelectorComp() {
             iconType="spark-plus-line"
             type="text"
             size="small"
-            disabled={!file_search?.enable_search}
+            disabled={!normalizedFileSearch.enable_search}
           >
             {$i18n.get({
               id: 'main.components.KnowledgeSelectorComp.index.knowledgeBase',

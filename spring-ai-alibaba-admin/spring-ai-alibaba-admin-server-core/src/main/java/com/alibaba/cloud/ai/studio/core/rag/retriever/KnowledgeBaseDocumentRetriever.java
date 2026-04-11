@@ -95,11 +95,13 @@ public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 			for (CompletableFuture<List<Document>> future : futureList) {
 				documents.addAll(future.get(SEARCH_TIMEOUT, TimeUnit.SECONDS));
 			}
+			float similarityThreshold = resolveSimilarityThreshold(searchOptions);
+			int topK = resolveTopK(searchOptions);
 
 			List<Document> results = documents.stream()
 				.sorted(Comparator.comparing(Document::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
-				.filter(x -> x.getScore() != null && x.getScore() > searchOptions.getSimilarityThreshold())
-				.limit(searchOptions.getTopK())
+				.filter(x -> x.getScore() != null && x.getScore() > similarityThreshold)
+				.limit(topK)
 				.toList();
 
 			LogUtils.monitor("DocumentRetriever", "retrieve", start, SUCCESS, query.text(), results.size());
@@ -171,6 +173,20 @@ public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 
 		LogUtils.monitor("DocumentRetriever", "rerank", start, SUCCESS, query.text(), results.size());
 		return results;
+	}
+
+	private int resolveTopK(FileSearchOptions options) {
+		if (options == null || options.getTopK() == null || options.getTopK() <= 0) {
+			return FileSearchOptions.DEFAULT_TOP_K;
+		}
+		return options.getTopK();
+	}
+
+	private float resolveSimilarityThreshold(FileSearchOptions options) {
+		if (options == null || options.getSimilarityThreshold() == null) {
+			return FileSearchOptions.DEFAULT_SIMILARITY_THRESHOLD;
+		}
+		return options.getSimilarityThreshold();
 	}
 
 }
