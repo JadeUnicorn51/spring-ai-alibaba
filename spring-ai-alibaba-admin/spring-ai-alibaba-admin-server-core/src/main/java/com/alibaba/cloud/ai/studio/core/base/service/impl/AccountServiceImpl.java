@@ -109,6 +109,9 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		if (!PasswordCryptUtils.match(loginRequest.getPassword(), accountEntity.getPassword())) {
 			throw new BizException(ErrorCode.ACCOUNT_LOGIN_ERROR.toError());
 		}
+		if (accountEntity.getStatus() != AccountStatus.NORMAL) {
+			throw new BizException(ErrorCode.ACCOUNT_LOGIN_ERROR.toError());
+		}
 
 		accountEntity.setGmtLastLogin(new Date());
 		this.updateById(accountEntity);
@@ -169,6 +172,9 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 
 		if (accountEntity == null) {
 			throw new BizException(ErrorCode.ACCOUNT_NOT_FOUND.toError());
+		}
+		if (accountEntity.getStatus() != AccountStatus.NORMAL) {
+			throw new BizException(ErrorCode.ACCOUNT_LOGIN_ERROR.toError());
 		}
 
 		// cache it
@@ -485,6 +491,45 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		return new PagingList<>(safeQuery.getCurrent(), safeQuery.getSize(), pageResult.getTotal(), accounts);
 	}
 
+	@Override
+	public void updateTenantAdminStatus(String tenantId, String accountId, AccountStatus targetStatus) {
+		if (targetStatus == null || targetStatus == AccountStatus.DELETED) {
+			throw new BizException(ErrorCode.INVALID_PARAMS.toError("status"));
+		}
+
+		AccountEntity operator = getCurrentSuperAdminOperator();
+		AccountEntity target = getTargetTenantAdmin(tenantId, accountId);
+		if (target.getStatus() == targetStatus) {
+			return;
+		}
+
+		target.setStatus(targetStatus);
+		target.setModifier(operator.getAccountId());
+		target.setGmtModified(new Date());
+		this.updateById(target);
+
+		String cacheKey = getAccountCacheKey(accountId);
+		redisManager.put(cacheKey, target);
+	}
+
+	@Override
+	public void resetTenantAdminPassword(String tenantId, String accountId, String newPassword) {
+		if (StringUtils.isBlank(newPassword)) {
+			throw new BizException(ErrorCode.MISSING_PARAMS.toError("newPassword"));
+		}
+
+		AccountEntity operator = getCurrentSuperAdminOperator();
+		AccountEntity target = getTargetTenantAdmin(tenantId, accountId);
+
+		target.setPassword(PasswordCryptUtils.encode(newPassword));
+		target.setModifier(operator.getAccountId());
+		target.setGmtModified(new Date());
+		this.updateById(target);
+
+		String cacheKey = getAccountCacheKey(accountId);
+		redisManager.put(cacheKey, target);
+	}
+
 	/**
 	 * Retrieves account by ID
 	 * @param accountId Account ID
@@ -554,6 +599,9 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		AccountEntity accountEntity = getAccountById(accountId);
 		if (accountEntity == null) {
 			throw new BizException(ErrorCode.ACCOUNT_NOT_FOUND.toError());
+		}
+		if (accountEntity.getStatus() != AccountStatus.NORMAL) {
+			throw new BizException(ErrorCode.ACCOUNT_LOGIN_ERROR.toError());
 		}
 		validateTenantAccessible(accountEntity.getTenantId());
 
@@ -675,6 +723,41 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		}
 
 		return entity;
+	}
+
+	private AccountEntity getCurrentSuperAdminOperator() {
+		RequestContext context = RequestContextHolder.getRequestContext();
+		if (context == null || StringUtils.isBlank(context.getAccountId())) {
+			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+		AccountEntity operator = checkAdminPermission(context.getAccountId());
+		if (operator.getType() != AccountType.SUPER_ADMIN) {
+			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+		return operator;
+	}
+
+	private AccountEntity getTargetTenantAdmin(String tenantId, String accountId) {
+		if (StringUtils.isBlank(tenantId)) {
+			throw new BizException(ErrorCode.MISSING_PARAMS.toError("tenant_id"));
+		}
+		if (StringUtils.isBlank(accountId)) {
+			throw new BizException(ErrorCode.MISSING_PARAMS.toError("account_id"));
+		}
+
+		AccountEntity target = getAccountById(accountId);
+		if (target == null) {
+			throw new BizException(ErrorCode.ACCOUNT_NOT_FOUND.toError());
+		}
+
+		if (!tenantId.equals(target.getTenantId())) {
+			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+		if (target.getType() != AccountType.TENANT_ADMIN && target.getType() != AccountType.ADMIN) {
+			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+
+		return target;
 	}
 
 	private AccountType resolveTargetAccountType(AccountEntity operator, Account account) {

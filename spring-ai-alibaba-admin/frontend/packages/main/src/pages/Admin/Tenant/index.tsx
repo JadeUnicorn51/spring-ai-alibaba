@@ -3,16 +3,20 @@ import $i18n from '@/i18n';
 import {
   createTenantAdmin,
   createTenant,
+  disableTenantAdmin,
   disableTenant,
+  enableTenantAdmin,
   enableTenant,
   getTenantAdminList,
   getTenantList,
+  resetTenantAdminPassword,
   updateTenant,
   updateTenantQuota,
 } from '@/services/tenant';
 import type {
   ICreateTenantAdminParams,
   ICreateTenantParams,
+  IResetTenantAdminPasswordParams,
   ITenant,
   ITenantAdmin,
   IUpdateTenantQuotaParams,
@@ -46,6 +50,8 @@ interface QuotaFormValues extends IUpdateTenantQuotaParams {}
 
 interface TenantAdminFormValues extends ICreateTenantAdminParams {}
 
+interface ResetTenantAdminPasswordFormValues extends IResetTenantAdminPasswordParams {}
+
 const ADMIN_LIST_PAGE_SIZE = 10;
 
 export default function TenantAdminPage() {
@@ -62,8 +68,10 @@ export default function TenantAdminPage() {
   const [quotaVisible, setQuotaVisible] = useState(false);
   const [adminVisible, setAdminVisible] = useState(false);
   const [adminListVisible, setAdminListVisible] = useState(false);
+  const [resetPasswordVisible, setResetPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTenant, setActiveTenant] = useState<ITenant | null>(null);
+  const [activeTenantAdmin, setActiveTenantAdmin] = useState<ITenantAdmin | null>(null);
 
   const [adminListLoading, setAdminListLoading] = useState(false);
   const [tenantAdmins, setTenantAdmins] = useState<ITenantAdmin[]>([]);
@@ -75,6 +83,7 @@ export default function TenantAdminPage() {
   const [editForm] = Form.useForm<EditTenantFormValues>();
   const [quotaForm] = Form.useForm<QuotaFormValues>();
   const [adminForm] = Form.useForm<TenantAdminFormValues>();
+  const [resetPasswordForm] = Form.useForm<ResetTenantAdminPasswordFormValues>();
 
   const isSuperAdmin = isSuperAdminAccountType(window.g_config.user?.type);
 
@@ -226,6 +235,72 @@ export default function TenantAdminPage() {
     }
   };
 
+  const onToggleTenantAdminStatus = (admin: ITenantAdmin) => {
+    if (!activeTenant) return;
+    const normalizedStatus = (admin.status || '').toLowerCase();
+    const nextEnable = normalizedStatus === 'disabled';
+    Modal.confirm({
+      title: nextEnable
+        ? $i18n.get({
+            id: 'main.pages.Admin.Tenant.enableAdminConfirm',
+            dm: 'Enable this tenant admin?',
+          })
+        : $i18n.get({
+            id: 'main.pages.Admin.Tenant.disableAdminConfirm',
+            dm: 'Disable this tenant admin?',
+          }),
+      onOk: async () => {
+        if (nextEnable) {
+          await enableTenantAdmin(activeTenant.tenant_id, admin.account_id);
+        } else {
+          await disableTenantAdmin(activeTenant.tenant_id, admin.account_id);
+        }
+        message.success(
+          nextEnable
+            ? $i18n.get({
+                id: 'main.pages.Admin.Tenant.enableAdminSuccess',
+                dm: 'Tenant admin enabled',
+              })
+            : $i18n.get({
+                id: 'main.pages.Admin.Tenant.disableAdminSuccess',
+                dm: 'Tenant admin disabled',
+              }),
+        );
+        fetchTenantAdmins(activeTenant.tenant_id, adminCurrent, adminSize);
+      },
+    });
+  };
+
+  const openResetTenantAdminPasswordModal = (admin: ITenantAdmin) => {
+    setActiveTenantAdmin(admin);
+    resetPasswordForm.setFieldsValue({ new_password: '' });
+    setResetPasswordVisible(true);
+  };
+
+  const onResetTenantAdminPassword = async () => {
+    if (!activeTenant || !activeTenantAdmin) return;
+    try {
+      const values = await resetPasswordForm.validateFields();
+      setSubmitting(true);
+      await resetTenantAdminPassword(
+        activeTenant.tenant_id,
+        activeTenantAdmin.account_id,
+        values,
+      );
+      message.success(
+        $i18n.get({
+          id: 'main.pages.Admin.Tenant.resetAdminPasswordSuccess',
+          dm: 'Tenant admin password reset successfully',
+        }),
+      );
+      setResetPasswordVisible(false);
+      setActiveTenantAdmin(null);
+      resetPasswordForm.resetFields();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const onToggleStatus = (tenant: ITenant) => {
     const targetStatus = tenant.status === 1 ? 0 : 1;
     Modal.confirm({
@@ -305,7 +380,7 @@ export default function TenantAdminPage() {
       title: 'Account ID',
       dataIndex: 'account_id',
       key: 'account_id',
-      width: 180,
+      width: 160,
       ellipsis: true,
     },
     {
@@ -315,7 +390,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'username',
       key: 'username',
-      width: 140,
+      width: 130,
     },
     {
       title: $i18n.get({
@@ -324,7 +399,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'nickname',
       key: 'nickname',
-      width: 140,
+      width: 130,
       render: (value?: string) => value || '-',
     },
     {
@@ -334,7 +409,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'type',
       key: 'type',
-      width: 120,
+      width: 110,
       render: (value?: string) => value || '-',
     },
     {
@@ -344,7 +419,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'status',
       key: 'status',
-      width: 110,
+      width: 100,
       render: (value?: string) => {
         const normalized = (value || '').toLowerCase();
         if (normalized === 'normal') {
@@ -363,9 +438,51 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'gmt_create',
       key: 'gmt_create',
-      width: 160,
+      width: 150,
       render: (value?: string) =>
         value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-',
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.actions',
+        dm: 'Actions',
+      }),
+      key: 'actions',
+      render: (_, record) => {
+        const normalizedStatus = (record.status || '').toLowerCase();
+        const disabled = normalizedStatus === 'disabled';
+        return (
+          <Space size={4} wrap>
+            <Button
+              size="small"
+              type="link"
+              disabled={!isSuperAdmin}
+              onClick={() => onToggleTenantAdminStatus(record)}
+            >
+              {disabled
+                ? $i18n.get({
+                    id: 'main.pages.Admin.Tenant.enable',
+                    dm: 'Enable',
+                  })
+                : $i18n.get({
+                    id: 'main.pages.Admin.Tenant.disable',
+                    dm: 'Disable',
+                  })}
+            </Button>
+            <Button
+              size="small"
+              type="link"
+              disabled={!isSuperAdmin}
+              onClick={() => openResetTenantAdminPasswordModal(record)}
+            >
+              {$i18n.get({
+                id: 'main.pages.Admin.Tenant.resetAdminPassword',
+                dm: 'Reset Password',
+              })}
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -682,11 +799,14 @@ export default function TenantAdminPage() {
         width={920}
         onCancel={() => {
           setAdminListVisible(false);
+          setResetPasswordVisible(false);
           setActiveTenant(null);
+          setActiveTenantAdmin(null);
           setTenantAdmins([]);
           setAdminCurrent(1);
           setAdminSize(ADMIN_LIST_PAGE_SIZE);
           setAdminTotal(0);
+          resetPasswordForm.resetFields();
         }}
       >
         <Table
@@ -767,6 +887,43 @@ export default function TenantAdminPage() {
             })}
           >
             <Input maxLength={32} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={$i18n.get({
+          id: 'main.pages.Admin.Tenant.resetAdminPassword',
+          dm: 'Reset Password',
+        })}
+        open={resetPasswordVisible}
+        onCancel={() => {
+          setResetPasswordVisible(false);
+          setActiveTenantAdmin(null);
+          resetPasswordForm.resetFields();
+        }}
+        onOk={onResetTenantAdminPassword}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !isSuperAdmin }}
+      >
+        <Form layout="vertical" form={resetPasswordForm} requiredMark={false}>
+          <Form.Item
+            label={$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminUsername',
+              dm: 'Username',
+            })}
+          >
+            <Input value={activeTenantAdmin?.username} disabled />
+          </Form.Item>
+          <Form.Item
+            name="new_password"
+            label={$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminPassword',
+              dm: 'Password',
+            })}
+            rules={[{ required: true, message: 'Please input password' }]}
+          >
+            <Input.Password maxLength={64} />
           </Form.Item>
         </Form>
       </Modal>

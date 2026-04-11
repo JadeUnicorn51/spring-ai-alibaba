@@ -65,6 +65,10 @@ export interface ITenantAdmin {
   email?: string;
   mobile?: string;
   type: string;
-  status?: string;
+  status?: 'normal' | 'disabled' | 'deleted' | string;
   gmt_create?: string;
+}
+
+export interface IResetTenantAdminPasswordParams {
+  new_password: string;
 }

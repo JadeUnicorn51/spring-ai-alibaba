@@ -214,3 +214,38 @@ Completed in this round:
 Next step:
 
 - [ ] Add tenant-admin lifecycle operations: enable/disable tenant admin and reset password from platform tenant governance page.
+
+## 12. 2026-04-11 Update (Step 4)
+
+Completed in this round:
+
+- [x] Tenant-admin lifecycle APIs (platform side):
+  - Added enable API: `POST /admin/v1/tenants/{tenantId}/admins/{accountId}/enable`
+  - Added disable API: `POST /admin/v1/tenants/{tenantId}/admins/{accountId}/disable`
+  - Added reset-password API: `PUT /admin/v1/tenants/{tenantId}/admins/{accountId}/password`
+  - Files:
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/controller/TenantController.java`
+    - `spring-ai-alibaba-admin-server-runtime/src/main/java/com/alibaba/cloud/ai/studio/runtime/domain/tenant/TenantAdminResetPasswordRequest.java`
+- [x] Account service support for tenant-admin lifecycle:
+  - Added service methods for tenant-scoped admin status update and password reset.
+  - Added tenant/admin target validation and platform-super-admin permission checks.
+  - Files:
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/AccountService.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/impl/AccountServiceImpl.java`
+- [x] Runtime auth behavior aligned with account status:
+  - Disabled accounts are blocked during login and token-auth intercept.
+  - Files:
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/impl/AccountServiceImpl.java`
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/builder/interceptor/TokenAuthInterceptor.java`
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/builder/interceptor/AdminTokenAuthInterceptor.java`
+- [x] Frontend platform tenant governance page enhancement:
+  - Added tenant-admin actions in admin list: `Enable/Disable`, `Reset Password`.
+  - Added reset-password modal and API wiring.
+  - Files:
+    - `frontend/packages/main/src/services/tenant.ts`
+    - `frontend/packages/main/src/types/tenant.ts`
+    - `frontend/packages/main/src/pages/Admin/Tenant/index.tsx`
+
+Next step:
+
+- [ ] Add tenant-admin delete/recreate policy and operation audit records for platform governance actions.

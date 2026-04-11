@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.studio.admin.builder.interceptor;
 
 import com.alibaba.cloud.ai.studio.runtime.constants.ApiConstants;
 import com.alibaba.cloud.ai.studio.runtime.enums.AccountType;
+import com.alibaba.cloud.ai.studio.runtime.enums.AccountStatus;
 import com.alibaba.cloud.ai.studio.runtime.enums.ErrorCode;
 import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
 import com.alibaba.cloud.ai.studio.runtime.domain.Result;
@@ -97,6 +98,10 @@ public class AdminTokenAuthInterceptor implements HandlerInterceptor {
         Account account = accountService.getAccount(accountId);
         if (account == null) {
             returnAuthError(start, response, ErrorCode.INVALID_TOKEN);
+            return false;
+        }
+        if (account.getStatus() != AccountStatus.NORMAL) {
+            returnAuthError(start, response, ErrorCode.ACCOUNT_LOGIN_ERROR);
             return false;
         }
 

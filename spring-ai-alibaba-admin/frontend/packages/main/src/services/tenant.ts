@@ -6,6 +6,7 @@ import type {
   ICreateTenantParams,
   IGetTenantAdminListParams,
   IGetTenantListParams,
+  IResetTenantAdminPasswordParams,
   ITenantAdmin,
   ITenant,
   IUpdateTenantParams,
@@ -98,4 +99,39 @@ export async function getTenantAdminList(
     params,
   });
   return response.data as IApiResponse<IPagingList<ITenantAdmin>>;
+}
+
+export async function enableTenantAdmin(
+  tenantId: string,
+  accountId: string,
+): Promise<IApiResponse<void>> {
+  const response = await request({
+    url: `/admin/v1/tenants/${tenantId}/admins/${accountId}/enable`,
+    method: 'POST',
+  });
+  return response.data as IApiResponse<void>;
+}
+
+export async function disableTenantAdmin(
+  tenantId: string,
+  accountId: string,
+): Promise<IApiResponse<void>> {
+  const response = await request({
+    url: `/admin/v1/tenants/${tenantId}/admins/${accountId}/disable`,
+    method: 'POST',
+  });
+  return response.data as IApiResponse<void>;
+}
+
+export async function resetTenantAdminPassword(
+  tenantId: string,
+  accountId: string,
+  params: IResetTenantAdminPasswordParams,
+): Promise<IApiResponse<void>> {
+  const response = await request({
+    url: `/admin/v1/tenants/${tenantId}/admins/${accountId}/password`,
+    method: 'PUT',
+    data: params,
+  });
+  return response.data as IApiResponse<void>;
 }

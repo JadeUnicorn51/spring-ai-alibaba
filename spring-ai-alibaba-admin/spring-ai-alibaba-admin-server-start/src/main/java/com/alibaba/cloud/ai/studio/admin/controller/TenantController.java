@@ -24,8 +24,10 @@ import com.alibaba.cloud.ai.studio.runtime.domain.Result;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.Account;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.Tenant;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminCreateRequest;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminResetPasswordRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantCreateRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantQuotaDTO;
+import com.alibaba.cloud.ai.studio.runtime.enums.AccountStatus;
 import com.alibaba.cloud.ai.studio.runtime.enums.AccountType;
 import com.alibaba.cloud.ai.studio.runtime.enums.CommonStatus;
 import com.alibaba.cloud.ai.studio.runtime.enums.ErrorCode;
@@ -232,11 +234,75 @@ public class TenantController {
 	}
 
 	/**
+	 * Enables a tenant administrator account.
+	 * @param tenantId Tenant ID
+	 * @param accountId Account ID
+	 * @return Success status
+	 */
+	@PostMapping("/{tenantId}/admins/{accountId}/enable")
+	@Operation(summary = "Enable tenant admin", description = "Enables a tenant administrator account")
+	public Result<Void> enableTenantAdmin(@PathVariable("tenantId") String tenantId,
+			@PathVariable("accountId") String accountId) {
+		validatePlatformAdmin();
+		validateTenantExists(tenantId);
+
+		accountService.updateTenantAdminStatus(tenantId, accountId, AccountStatus.NORMAL);
+		return Result.success(getRequestId(), null);
+	}
+
+	/**
+	 * Disables a tenant administrator account.
+	 * @param tenantId Tenant ID
+	 * @param accountId Account ID
+	 * @return Success status
+	 */
+	@PostMapping("/{tenantId}/admins/{accountId}/disable")
+	@Operation(summary = "Disable tenant admin", description = "Disables a tenant administrator account")
+	public Result<Void> disableTenantAdmin(@PathVariable("tenantId") String tenantId,
+			@PathVariable("accountId") String accountId) {
+		validatePlatformAdmin();
+		validateTenantExists(tenantId);
+
+		accountService.updateTenantAdminStatus(tenantId, accountId, AccountStatus.DISABLED);
+		return Result.success(getRequestId(), null);
+	}
+
+	/**
+	 * Resets password of a tenant administrator account.
+	 * @param tenantId Tenant ID
+	 * @param accountId Account ID
+	 * @param request Reset password request
+	 * @return Success status
+	 */
+	@PutMapping("/{tenantId}/admins/{accountId}/password")
+	@Operation(summary = "Reset tenant admin password", description = "Resets password of a tenant administrator account")
+	public Result<Void> resetTenantAdminPassword(@PathVariable("tenantId") String tenantId,
+			@PathVariable("accountId") String accountId,
+			@RequestBody TenantAdminResetPasswordRequest request) {
+		validatePlatformAdmin();
+		validateTenantExists(tenantId);
+
+		if (request == null || StringUtils.isBlank(request.getNewPassword())) {
+			throw new BizException(ErrorCode.MISSING_PARAMS.toError("newPassword"));
+		}
+
+		accountService.resetTenantAdminPassword(tenantId, accountId, request.getNewPassword());
+		return Result.success(getRequestId(), null);
+	}
+
+	/**
 	 * Validates that the current user is a platform administrator
 	 */
 	private void validatePlatformAdmin() {
 		if (!TenantContextHolder.isPlatformLevel()) {
 			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+	}
+
+	private void validateTenantExists(String tenantId) {
+		Tenant tenant = tenantService.getTenant(tenantId);
+		if (tenant == null) {
+			throw new BizException(ErrorCode.TENANT_NOT_FOUND.toError());
 		}
 	}
 

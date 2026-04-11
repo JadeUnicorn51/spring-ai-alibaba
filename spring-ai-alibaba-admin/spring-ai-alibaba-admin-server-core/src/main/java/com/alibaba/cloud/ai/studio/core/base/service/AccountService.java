@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.studio.runtime.domain.account.TokenResponse;
 import com.alibaba.cloud.ai.studio.core.base.entity.AccountEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.Oauth2User;
+import com.alibaba.cloud.ai.studio.runtime.enums.AccountStatus;
 
 /**
  * Account management service interface. Provides operations for user authentication,
@@ -89,6 +90,16 @@ public interface AccountService extends IService<AccountEntity> {
 	 * Retrieves tenant administrator accounts under a specific tenant.
 	 */
 	PagingList<Account> listTenantAdmins(String tenantId, BaseQuery query);
+
+	/**
+	 * Updates tenant administrator account status under a specific tenant.
+	 */
+	void updateTenantAdminStatus(String tenantId, String accountId, AccountStatus targetStatus);
+
+	/**
+	 * Resets tenant administrator password under a specific tenant.
+	 */
+	void resetTenantAdminPassword(String tenantId, String accountId, String newPassword);
 
 	/**
 	 * Gets account details by ID
