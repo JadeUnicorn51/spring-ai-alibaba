@@ -15,6 +15,7 @@ import { useMemo } from 'react';
 import InputParamsComp, {
   IConfigInput,
   IOutputParamItem,
+  normalizeInputConfig,
 } from '../InputParamsComp';
 import OutputParamsComp from '../OutputParamsComp';
 import styles from './index.module.less';
@@ -24,6 +25,10 @@ interface IProps {
   onClose: () => void;
   onOk: () => void;
 }
+
+const normalizeOutputParams = (output: any): IOutputParamItem[] => {
+  return Array.isArray(output) ? output : [];
+};
 
 export default function EditDrawer(props: IProps) {
   const [state, setState] = useSetState({
@@ -167,8 +172,8 @@ export default function EditDrawer(props: IProps) {
         if (!res) return;
         const componentDetailCfg = JSON.parse(res.config);
         setState({
-          input: componentDetailCfg.input,
-          output: componentDetailCfg.output,
+          input: normalizeInputConfig(componentDetailCfg.input),
+          output: normalizeOutputParams(componentDetailCfg.output),
           detail: res,
         });
         form.setFieldsValue({
@@ -179,8 +184,8 @@ export default function EditDrawer(props: IProps) {
         const ret = await getConfigByAppId(props.data.app_id as string);
         const componentParams = JSON.parse(ret.config);
         setState({
-          input: componentParams.input,
-          output: componentParams.output,
+          input: normalizeInputConfig(componentParams.input),
+          output: normalizeOutputParams(componentParams.output),
           // @ts-ignore
           detail: {
             app_name: ret.app_name,

@@ -35,6 +35,43 @@ export interface IConfigInput {
   system_params: IParamItem[];
 }
 
+const normalizeParamItem = (item: any): IParamItem => {
+  return {
+    field: item?.field || '',
+    type: item?.type,
+    description: item?.description || '',
+    default_value: item?.default_value ?? item?.defaultValue,
+    alias: item?.alias || '',
+    required: item?.required ?? false,
+    display: item?.display ?? true,
+    source: item?.source || 'model',
+  } as IParamItem;
+};
+
+export const normalizeInputConfig = (input?: any): IConfigInput => {
+  const rawUserParams = input?.user_params ?? input?.userParams;
+  const rawSystemParams = input?.system_params ?? input?.systemParams;
+
+  const user_params = Array.isArray(rawUserParams)
+    ? rawUserParams.map((item: any) => ({
+        code: item?.code || '',
+        name: item?.name || '',
+        params: Array.isArray(item?.params)
+          ? item.params.map(normalizeParamItem)
+          : [],
+      }))
+    : [];
+
+  const system_params = Array.isArray(rawSystemParams)
+    ? rawSystemParams.map(normalizeParamItem)
+    : [];
+
+  return {
+    user_params,
+    system_params,
+  };
+};
+
 interface IProps {
   input: IConfigInput;
   onChange: (val: Partial<IConfigInput>) => void;
@@ -258,8 +295,10 @@ export function InputCompItem(props: IInputCompItemProps) {
 }
 
 export default function InputParamsComp(props: IProps) {
+  const normalizedInput = normalizeInputConfig(props.input);
+
   const handleChangeUserParams = (params: IParamItem[], code: string) => {
-    const newUserParams = props.input.user_params.map((item) => {
+    const newUserParams = normalizedInput.user_params.map((item) => {
       if (item.code === code)
         return {
           ...item,
@@ -274,7 +313,7 @@ export default function InputParamsComp(props: IProps) {
 
   return (
     <Flex vertical gap={20}>
-      {props.input.user_params.map((item) => (
+      {normalizedInput.user_params.map((item) => (
         <InputCompItem
           onChange={(val) => handleChangeUserParams(val, item.code)}
           name={item.name}
@@ -289,7 +328,7 @@ export default function InputParamsComp(props: IProps) {
           dm: '系统参数',
         })}
         onChange={(val) => props.onChange({ system_params: val })}
-        params={props.input.system_params}
+        params={normalizedInput.system_params}
         disabled={props.disabled}
       />
     </Flex>

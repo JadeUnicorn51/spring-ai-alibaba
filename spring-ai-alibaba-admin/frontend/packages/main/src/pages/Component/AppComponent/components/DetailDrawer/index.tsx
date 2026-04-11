@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import InputParamsComp, {
   IConfigInput,
   IOutputParamItem,
+  normalizeInputConfig,
 } from '../InputParamsComp';
 import OutputParamsComp from '../OutputParamsComp';
 import styles from './index.module.less';
@@ -17,6 +18,10 @@ interface IProps {
   data: IAppComponentListItem;
   onClose: () => void;
 }
+
+const normalizeOutputParams = (output: any): IOutputParamItem[] => {
+  return Array.isArray(output) ? output : [];
+};
 
 export default function DetailDrawer(props: IProps) {
   const [state, setState] = useSetState({
@@ -33,8 +38,8 @@ export default function DetailDrawer(props: IProps) {
       const ret = await getAppComponentDetailByCode(props.data.code!);
       const componentDetailCfg = JSON.parse(ret.config);
       setState({
-        input: componentDetailCfg.input,
-        output: componentDetailCfg.output,
+        input: normalizeInputConfig(componentDetailCfg.input),
+        output: normalizeOutputParams(componentDetailCfg.output),
       });
     } finally {
       setState({

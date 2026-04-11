@@ -14,6 +14,8 @@ interface IProps {
 }
 
 export default function OutputParamsComp(props: IProps) {
+  const outputList = Array.isArray(props.output) ? props.output : [];
+
   return (
     <Flex vertical gap={8}>
       <Flex className={styles['key-label']} gap={8}>
@@ -30,7 +32,7 @@ export default function OutputParamsComp(props: IProps) {
           })}
         </span>
       </Flex>
-      {props.output.map((item, index) => (
+      {outputList.map((item, index) => (
         <Flex gap={8} key={index}>
           <Input className="flex-1" value={item.field} disabled />
           <Input className="flex-1" value={item.type} disabled />
