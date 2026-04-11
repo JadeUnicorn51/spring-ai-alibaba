@@ -77,6 +77,9 @@ export interface IGetTenantAdminAuditListParams {
   current?: number;
   size?: number;
   name?: string;
+  operation?: string;
+  operatorAccountId?: string;
+  targetAccountId?: string;
 }
 
 export interface ITenantAdminAudit {

@@ -58,6 +58,12 @@ interface ResetTenantAdminPasswordFormValues extends IResetTenantAdminPasswordPa
 const ADMIN_LIST_PAGE_SIZE = 10;
 const ADMIN_AUDIT_PAGE_SIZE = 10;
 
+interface AuditFilterValues {
+  operation?: string;
+  operatorAccountId?: string;
+  targetAccountId?: string;
+}
+
 export default function TenantAdminPage() {
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<ITenant[]>([]);
@@ -88,6 +94,9 @@ export default function TenantAdminPage() {
   const [adminAuditCurrent, setAdminAuditCurrent] = useState(1);
   const [adminAuditSize, setAdminAuditSize] = useState(ADMIN_AUDIT_PAGE_SIZE);
   const [adminAuditTotal, setAdminAuditTotal] = useState(0);
+  const [auditOperation, setAuditOperation] = useState('');
+  const [auditOperatorAccountId, setAuditOperatorAccountId] = useState('');
+  const [auditTargetAccountId, setAuditTargetAccountId] = useState('');
 
   const [createForm] = Form.useForm<CreateTenantFormValues>();
   const [editForm] = Form.useForm<EditTenantFormValues>();
@@ -142,12 +151,23 @@ export default function TenantAdminPage() {
     tenantId: string,
     page = adminAuditCurrent,
     pageSize = adminAuditSize,
+    filters?: AuditFilterValues,
   ) => {
+    const operation = (filters?.operation ?? auditOperation).trim();
+    const operatorAccountId = (
+      filters?.operatorAccountId ?? auditOperatorAccountId
+    ).trim();
+    const targetAccountId = (
+      filters?.targetAccountId ?? auditTargetAccountId
+    ).trim();
     setAdminAuditLoading(true);
     try {
       const response = await getTenantAdminAuditList(tenantId, {
         current: page,
         size: pageSize,
+        operation: operation || undefined,
+        operatorAccountId: operatorAccountId || undefined,
+        targetAccountId: targetAccountId || undefined,
       });
       setTenantAdminAudits(response.data.records || []);
       setAdminAuditCurrent(response.data.current);
@@ -187,6 +207,27 @@ export default function TenantAdminPage() {
     const nextCurrent = pagination.current || 1;
     const nextSize = pagination.pageSize || adminAuditSize;
     fetchTenantAdminAudits(activeTenant.tenant_id, nextCurrent, nextSize);
+  };
+
+  const onAdminAuditFilterSearch = () => {
+    if (!activeTenant) return;
+    fetchTenantAdminAudits(activeTenant.tenant_id, 1, adminAuditSize, {
+      operation: auditOperation,
+      operatorAccountId: auditOperatorAccountId,
+      targetAccountId: auditTargetAccountId,
+    });
+  };
+
+  const onAdminAuditFilterReset = () => {
+    if (!activeTenant) return;
+    setAuditOperation('');
+    setAuditOperatorAccountId('');
+    setAuditTargetAccountId('');
+    fetchTenantAdminAudits(activeTenant.tenant_id, 1, adminAuditSize, {
+      operation: '',
+      operatorAccountId: '',
+      targetAccountId: '',
+    });
   };
 
   const onCreate = async () => {
@@ -435,7 +476,14 @@ export default function TenantAdminPage() {
   const openTenantAdminAuditModal = (tenant: ITenant) => {
     setActiveTenant(tenant);
     setAdminAuditVisible(true);
-    fetchTenantAdminAudits(tenant.tenant_id, 1, ADMIN_AUDIT_PAGE_SIZE);
+    setAuditOperation('');
+    setAuditOperatorAccountId('');
+    setAuditTargetAccountId('');
+    fetchTenantAdminAudits(tenant.tenant_id, 1, ADMIN_AUDIT_PAGE_SIZE, {
+      operation: '',
+      operatorAccountId: '',
+      targetAccountId: '',
+    });
   };
 
   const adminColumns: ColumnsType<ITenantAdmin> = [
@@ -949,11 +997,61 @@ export default function TenantAdminPage() {
           setAdminAuditVisible(false);
           setActiveTenant(null);
           setTenantAdminAudits([]);
+          setAuditOperation('');
+          setAuditOperatorAccountId('');
+          setAuditTargetAccountId('');
           setAdminAuditCurrent(1);
           setAdminAuditSize(ADMIN_AUDIT_PAGE_SIZE);
           setAdminAuditTotal(0);
         }}
       >
+        <Space size={8} wrap className={styles.auditFilterRow}>
+          <Input
+            allowClear
+            value={auditOperation}
+            placeholder={$i18n.get({
+              id: 'main.pages.Admin.Tenant.auditFilterOperation',
+              dm: 'Filter by operation',
+            })}
+            onChange={(event) => setAuditOperation(event.target.value)}
+            onPressEnter={onAdminAuditFilterSearch}
+            style={{ width: 180 }}
+          />
+          <Input
+            allowClear
+            value={auditOperatorAccountId}
+            placeholder={$i18n.get({
+              id: 'main.pages.Admin.Tenant.auditFilterOperator',
+              dm: 'Filter by operator account',
+            })}
+            onChange={(event) => setAuditOperatorAccountId(event.target.value)}
+            onPressEnter={onAdminAuditFilterSearch}
+            style={{ width: 220 }}
+          />
+          <Input
+            allowClear
+            value={auditTargetAccountId}
+            placeholder={$i18n.get({
+              id: 'main.pages.Admin.Tenant.auditFilterTarget',
+              dm: 'Filter by target account',
+            })}
+            onChange={(event) => setAuditTargetAccountId(event.target.value)}
+            onPressEnter={onAdminAuditFilterSearch}
+            style={{ width: 220 }}
+          />
+          <Button onClick={onAdminAuditFilterSearch}>
+            {$i18n.get({
+              id: 'main.pages.Admin.Tenant.search',
+              dm: 'Search',
+            })}
+          </Button>
+          <Button onClick={onAdminAuditFilterReset}>
+            {$i18n.get({
+              id: 'main.pages.Admin.Tenant.reset',
+              dm: 'Reset',
+            })}
+          </Button>
+        </Space>
         <Table
           rowKey="id"
           columns={adminAuditColumns}
@@ -996,6 +1094,32 @@ export default function TenantAdminPage() {
           resetPasswordForm.resetFields();
         }}
       >
+        <Alert
+          className={styles.recreateGuideAlert}
+          showIcon
+          type="info"
+          message={$i18n.get({
+            id: 'main.pages.Admin.Tenant.recreateGuideTitle',
+            dm: 'Tenant Admin Recreate Guidance',
+          })}
+          description={$i18n.get({
+            id: 'main.pages.Admin.Tenant.recreateGuideDesc',
+            dm: 'If tenant admins are deleted/disabled and cannot log in, use Create Admin from this page to bootstrap a new tenant administrator.',
+          })}
+          action={
+            <Button
+              size="small"
+              type="link"
+              disabled={!isSuperAdmin || !activeTenant}
+              onClick={() => activeTenant && openTenantAdminModal(activeTenant)}
+            >
+              {$i18n.get({
+                id: 'main.pages.Admin.Tenant.createAdmin',
+                dm: 'Create Admin',
+              })}
+            </Button>
+          }
+        />
         <Table
           rowKey="account_id"
           columns={adminColumns}

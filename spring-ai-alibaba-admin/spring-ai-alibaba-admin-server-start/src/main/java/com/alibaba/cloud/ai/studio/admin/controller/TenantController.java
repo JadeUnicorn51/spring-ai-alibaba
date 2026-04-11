@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
 import com.alibaba.cloud.ai.studio.runtime.domain.Result;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.Account;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.Tenant;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminAuditQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminCreateRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminResetPasswordRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantCreateRequest;
@@ -150,7 +151,7 @@ public class TenantController {
 	@Operation(summary = "List tenant admin audits",
 			description = "Lists governance audit logs for tenant administrator operations")
 	public Result<PagingList<TenantGovernanceAuditLog>> listTenantAdminAudits(
-			@PathVariable("tenantId") String tenantId, BaseQuery query) {
+			@PathVariable("tenantId") String tenantId, TenantAdminAuditQuery query) {
 		validatePlatformAdmin();
 		validateTenantExists(tenantId);
 

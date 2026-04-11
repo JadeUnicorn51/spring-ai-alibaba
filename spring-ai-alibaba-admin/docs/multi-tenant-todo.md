@@ -309,3 +309,33 @@ Completed in this round:
 Next step:
 
 - [ ] Add tenant-admin recreate guidance + audit list filter fields (operation/operator/target) for easier governance troubleshooting.
+
+## 15. 2026-04-11 Update (Step 7)
+
+Completed in this round:
+
+- [x] Backend audit list filter fields:
+  - Added `TenantAdminAuditQuery` with independent filters:
+    `operation`, `operator_account_id`, `target_account_id`.
+  - Updated API `GET /admin/v1/tenants/{tenantId}/admin-audits` to accept the new query model.
+  - Updated service query logic to apply dedicated filters while retaining backward-compatible `name` fuzzy search.
+  - Files:
+    - `spring-ai-alibaba-admin-server-runtime/src/main/java/com/alibaba/cloud/ai/studio/runtime/domain/tenant/TenantAdminAuditQuery.java`
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/controller/TenantController.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/TenantGovernanceAuditLogService.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/impl/TenantGovernanceAuditLogServiceImpl.java`
+- [x] Frontend governance troubleshooting enhancement:
+  - Added audit filter controls in `/admin/tenants` -> `Admin Audits` modal:
+    `operation`, `operator account`, `target account`, with `Search/Reset`.
+  - Added tenant-admin recreate guidance alert in `Admin List` modal, with direct `Create Admin` entry.
+  - Files:
+    - `frontend/packages/main/src/pages/Admin/Tenant/index.tsx`
+    - `frontend/packages/main/src/pages/Admin/Tenant/index.module.less`
+    - `frontend/packages/main/src/types/tenant.ts`
+- [x] Build verification passed:
+  - `mvn -pl spring-ai-alibaba-admin-server-start -am -DskipTests compile`
+  - `npm run build -w packages/main`
+
+Next step:
+
+- [ ] Start P0 isolation regression testing for cross-tenant read/write access and privilege-boundary checks.

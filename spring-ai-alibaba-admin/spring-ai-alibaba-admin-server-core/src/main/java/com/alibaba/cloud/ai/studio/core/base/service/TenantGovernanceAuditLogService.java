@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.studio.core.base.service;
 
-import com.alibaba.cloud.ai.studio.runtime.domain.BaseQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.PagingList;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminAuditQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantGovernanceAuditLog;
 
 /**
@@ -39,9 +39,9 @@ public interface TenantGovernanceAuditLogService {
 	/**
 	 * Lists tenant governance audit logs.
 	 * @param tenantId tenant id
-	 * @param query pagination query
+	 * @param query pagination and filter query
 	 * @return paged logs
 	 */
-	PagingList<TenantGovernanceAuditLog> listTenantAdminAudits(String tenantId, BaseQuery query);
+	PagingList<TenantGovernanceAuditLog> listTenantAdminAudits(String tenantId, TenantAdminAuditQuery query);
 
 }

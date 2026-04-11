@@ -21,9 +21,9 @@ import com.alibaba.cloud.ai.studio.core.base.mapper.TenantGovernanceAuditLogMapp
 import com.alibaba.cloud.ai.studio.core.base.service.TenantGovernanceAuditLogService;
 import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
 import com.alibaba.cloud.ai.studio.core.utils.common.BeanCopierUtils;
-import com.alibaba.cloud.ai.studio.runtime.domain.BaseQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.PagingList;
 import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminAuditQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantGovernanceAuditLog;
 import com.alibaba.cloud.ai.studio.runtime.enums.ErrorCode;
 import com.alibaba.cloud.ai.studio.runtime.exception.BizException;
@@ -70,15 +70,26 @@ public class TenantGovernanceAuditLogServiceImpl
 	}
 
 	@Override
-	public PagingList<TenantGovernanceAuditLog> listTenantAdminAudits(String tenantId, BaseQuery query) {
+	public PagingList<TenantGovernanceAuditLog> listTenantAdminAudits(String tenantId, TenantAdminAuditQuery query) {
 		if (StringUtils.isBlank(tenantId)) {
 			throw new BizException(ErrorCode.MISSING_PARAMS.toError("tenant_id"));
 		}
 
-		BaseQuery safeQuery = query == null ? new BaseQuery() : query;
+		TenantAdminAuditQuery safeQuery = query == null ? new TenantAdminAuditQuery() : query;
 
 		LambdaQueryWrapper<TenantGovernanceAuditLogEntity> queryWrapper = new LambdaQueryWrapper<>();
 		queryWrapper.eq(TenantGovernanceAuditLogEntity::getTenantId, tenantId);
+		if (StringUtils.isNotBlank(safeQuery.getOperation())) {
+			queryWrapper.eq(TenantGovernanceAuditLogEntity::getOperation, safeQuery.getOperation());
+		}
+		if (StringUtils.isNotBlank(safeQuery.getOperatorAccountId())) {
+			queryWrapper.like(TenantGovernanceAuditLogEntity::getOperatorAccountId,
+					safeQuery.getOperatorAccountId());
+		}
+		if (StringUtils.isNotBlank(safeQuery.getTargetAccountId())) {
+			queryWrapper.like(TenantGovernanceAuditLogEntity::getTargetAccountId,
+					safeQuery.getTargetAccountId());
+		}
 		if (StringUtils.isNotBlank(safeQuery.getName())) {
 			queryWrapper.and(wrapper -> wrapper.like(TenantGovernanceAuditLogEntity::getOperation, safeQuery.getName())
 				.or()
