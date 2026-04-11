@@ -5,6 +5,7 @@ import {
   createTenant,
   disableTenant,
   enableTenant,
+  getTenantAdminList,
   getTenantList,
   updateTenant,
   updateTenantQuota,
@@ -13,6 +14,7 @@ import type {
   ICreateTenantAdminParams,
   ICreateTenantParams,
   ITenant,
+  ITenantAdmin,
   IUpdateTenantQuotaParams,
 } from '@/types/tenant';
 import { isSuperAdminAccountType } from '@/utils/accountType';
@@ -44,6 +46,8 @@ interface QuotaFormValues extends IUpdateTenantQuotaParams {}
 
 interface TenantAdminFormValues extends ICreateTenantAdminParams {}
 
+const ADMIN_LIST_PAGE_SIZE = 10;
+
 export default function TenantAdminPage() {
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<ITenant[]>([]);
@@ -57,8 +61,15 @@ export default function TenantAdminPage() {
   const [editVisible, setEditVisible] = useState(false);
   const [quotaVisible, setQuotaVisible] = useState(false);
   const [adminVisible, setAdminVisible] = useState(false);
+  const [adminListVisible, setAdminListVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTenant, setActiveTenant] = useState<ITenant | null>(null);
+
+  const [adminListLoading, setAdminListLoading] = useState(false);
+  const [tenantAdmins, setTenantAdmins] = useState<ITenantAdmin[]>([]);
+  const [adminCurrent, setAdminCurrent] = useState(1);
+  const [adminSize, setAdminSize] = useState(ADMIN_LIST_PAGE_SIZE);
+  const [adminTotal, setAdminTotal] = useState(0);
 
   const [createForm] = Form.useForm<CreateTenantFormValues>();
   const [editForm] = Form.useForm<EditTenantFormValues>();
@@ -88,6 +99,26 @@ export default function TenantAdminPage() {
     }
   };
 
+  const fetchTenantAdmins = async (
+    tenantId: string,
+    page = adminCurrent,
+    pageSize = adminSize,
+  ) => {
+    setAdminListLoading(true);
+    try {
+      const response = await getTenantAdminList(tenantId, {
+        current: page,
+        size: pageSize,
+      });
+      setTenantAdmins(response.data.records || []);
+      setAdminCurrent(response.data.current);
+      setAdminSize(response.data.size);
+      setAdminTotal(response.data.total);
+    } finally {
+      setAdminListLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isSuperAdmin) {
       setTenants([]);
@@ -105,6 +136,13 @@ export default function TenantAdminPage() {
     fetchTenants(nextCurrent, nextSize);
   };
 
+  const onAdminTableChange = (pagination: TablePaginationConfig) => {
+    if (!activeTenant) return;
+    const nextCurrent = pagination.current || 1;
+    const nextSize = pagination.pageSize || adminSize;
+    fetchTenantAdmins(activeTenant.tenant_id, nextCurrent, nextSize);
+  };
+
   const onCreate = async () => {
     try {
       const values = await createForm.validateFields();
@@ -113,7 +151,7 @@ export default function TenantAdminPage() {
       message.success(
         $i18n.get({
           id: 'main.pages.Admin.Tenant.createSuccess',
-          dm: '租户创建成功',
+          dm: 'Tenant created successfully',
         }),
       );
       setCreateVisible(false);
@@ -133,7 +171,7 @@ export default function TenantAdminPage() {
       message.success(
         $i18n.get({
           id: 'main.pages.Admin.Tenant.updateSuccess',
-          dm: '租户信息更新成功',
+          dm: 'Tenant updated successfully',
         }),
       );
       setEditVisible(false);
@@ -153,7 +191,7 @@ export default function TenantAdminPage() {
       message.success(
         $i18n.get({
           id: 'main.pages.Admin.Tenant.quotaSuccess',
-          dm: '租户配额更新成功',
+          dm: 'Tenant quota updated successfully',
         }),
       );
       setQuotaVisible(false);
@@ -173,12 +211,16 @@ export default function TenantAdminPage() {
       message.success(
         $i18n.get({
           id: 'main.pages.Admin.Tenant.createAdminSuccess',
-          dm: '租户管理员创建成功',
+          dm: 'Tenant admin created successfully',
         }),
       );
       setAdminVisible(false);
-      setActiveTenant(null);
       adminForm.resetFields();
+      if (adminListVisible) {
+        fetchTenantAdmins(activeTenant.tenant_id, adminCurrent, adminSize);
+      } else {
+        setActiveTenant(null);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -191,11 +233,11 @@ export default function TenantAdminPage() {
         targetStatus === 1
           ? $i18n.get({
               id: 'main.pages.Admin.Tenant.enableConfirm',
-              dm: '确认启用该租户？',
+              dm: 'Enable this tenant?',
             })
           : $i18n.get({
               id: 'main.pages.Admin.Tenant.disableConfirm',
-              dm: '确认禁用该租户？',
+              dm: 'Disable this tenant?',
             }),
       onOk: async () => {
         if (targetStatus === 1) {
@@ -207,11 +249,11 @@ export default function TenantAdminPage() {
           targetStatus === 1
             ? $i18n.get({
                 id: 'main.pages.Admin.Tenant.enableSuccess',
-                dm: '租户已启用',
+                dm: 'Tenant enabled',
               })
             : $i18n.get({
                 id: 'main.pages.Admin.Tenant.disableSuccess',
-                dm: '租户已禁用',
+                dm: 'Tenant disabled',
               }),
         );
         fetchTenants(current, size, queryName);
@@ -252,6 +294,81 @@ export default function TenantAdminPage() {
     setAdminVisible(true);
   };
 
+  const openTenantAdminListModal = (tenant: ITenant) => {
+    setActiveTenant(tenant);
+    setAdminListVisible(true);
+    fetchTenantAdmins(tenant.tenant_id, 1, ADMIN_LIST_PAGE_SIZE);
+  };
+
+  const adminColumns: ColumnsType<ITenantAdmin> = [
+    {
+      title: 'Account ID',
+      dataIndex: 'account_id',
+      key: 'account_id',
+      width: 220,
+      ellipsis: true,
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.adminUsername',
+        dm: 'Username',
+      }),
+      dataIndex: 'username',
+      key: 'username',
+      width: 160,
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.adminNickname',
+        dm: 'Nickname',
+      }),
+      dataIndex: 'nickname',
+      key: 'nickname',
+      width: 160,
+      render: (value?: string) => value || '-',
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.adminType',
+        dm: 'Role',
+      }),
+      dataIndex: 'type',
+      key: 'type',
+      width: 140,
+      render: (value?: string) => value || '-',
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.status',
+        dm: 'Status',
+      }),
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      render: (value?: string) => {
+        const normalized = (value || '').toLowerCase();
+        if (normalized === 'normal') {
+          return <Tag color="success">NORMAL</Tag>;
+        }
+        if (normalized === 'disabled') {
+          return <Tag color="error">DISABLED</Tag>;
+        }
+        return <Tag>{value || '-'}</Tag>;
+      },
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.createTime',
+        dm: 'Created At',
+      }),
+      dataIndex: 'gmt_create',
+      key: 'gmt_create',
+      width: 180,
+      render: (value?: string) =>
+        value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-',
+    },
+  ];
+
   const columns: ColumnsType<ITenant> = [
     {
       title: 'Tenant ID',
@@ -263,7 +380,7 @@ export default function TenantAdminPage() {
     {
       title: $i18n.get({
         id: 'main.pages.Admin.Tenant.name',
-        dm: '租户名称',
+        dm: 'Tenant Name',
       }),
       dataIndex: 'name',
       key: 'name',
@@ -272,7 +389,7 @@ export default function TenantAdminPage() {
     {
       title: $i18n.get({
         id: 'main.pages.Admin.Tenant.status',
-        dm: '状态',
+        dm: 'Status',
       }),
       dataIndex: 'status',
       key: 'status',
@@ -287,7 +404,7 @@ export default function TenantAdminPage() {
     {
       title: $i18n.get({
         id: 'main.pages.Admin.Tenant.quota',
-        dm: '配额',
+        dm: 'Quota',
       }),
       key: 'quota',
       render: (_, record) => (
@@ -301,7 +418,7 @@ export default function TenantAdminPage() {
     {
       title: $i18n.get({
         id: 'main.pages.Admin.Tenant.expireDate',
-        dm: '到期时间',
+        dm: 'Expire Date',
       }),
       dataIndex: 'expire_date',
       key: 'expire_date',
@@ -312,22 +429,20 @@ export default function TenantAdminPage() {
     {
       title: $i18n.get({
         id: 'main.pages.Admin.Tenant.actions',
-        dm: '操作',
+        dm: 'Actions',
       }),
       key: 'actions',
-      width: 280,
+      width: 420,
       render: (_, record) => (
         <Space size={8} wrap>
-          <Button size="small" disabled={!isSuperAdmin} onClick={() => openEditModal(record)}>
+          <Button
+            size="small"
+            disabled={!isSuperAdmin}
+            onClick={() => openTenantAdminListModal(record)}
+          >
             {$i18n.get({
-              id: 'main.pages.Admin.Tenant.edit',
-              dm: '编辑',
-            })}
-          </Button>
-          <Button size="small" disabled={!isSuperAdmin} onClick={() => openQuotaModal(record)}>
-            {$i18n.get({
-              id: 'main.pages.Admin.Tenant.editQuota',
-              dm: '调整配额',
+              id: 'main.pages.Admin.Tenant.adminList',
+              dm: 'Admin List',
             })}
           </Button>
           <Button
@@ -337,7 +452,27 @@ export default function TenantAdminPage() {
           >
             {$i18n.get({
               id: 'main.pages.Admin.Tenant.createAdmin',
-              dm: '创建管理员',
+              dm: 'Create Admin',
+            })}
+          </Button>
+          <Button
+            size="small"
+            disabled={!isSuperAdmin}
+            onClick={() => openEditModal(record)}
+          >
+            {$i18n.get({
+              id: 'main.pages.Admin.Tenant.edit',
+              dm: 'Edit',
+            })}
+          </Button>
+          <Button
+            size="small"
+            disabled={!isSuperAdmin}
+            onClick={() => openQuotaModal(record)}
+          >
+            {$i18n.get({
+              id: 'main.pages.Admin.Tenant.editQuota',
+              dm: 'Edit Quota',
             })}
           </Button>
           <Button
@@ -349,11 +484,11 @@ export default function TenantAdminPage() {
             {record.status === 1
               ? $i18n.get({
                   id: 'main.pages.Admin.Tenant.disable',
-                  dm: '禁用',
+                  dm: 'Disable',
                 })
               : $i18n.get({
                   id: 'main.pages.Admin.Tenant.enable',
-                  dm: '启用',
+                  dm: 'Enable',
                 })}
           </Button>
         </Space>
@@ -367,14 +502,14 @@ export default function TenantAdminPage() {
         {
           title: $i18n.get({
             id: 'main.pages.App.index.home',
-            dm: '首页',
+            dm: 'Home',
           }),
           path: '/',
         },
         {
           title: $i18n.get({
             id: 'main.pages.Admin.Tenant.title',
-            dm: '租户管理',
+            dm: 'Tenant Management',
           }),
         },
       ]}
@@ -385,16 +520,20 @@ export default function TenantAdminPage() {
             value={searchName}
             placeholder={$i18n.get({
               id: 'main.pages.Admin.Tenant.searchPlaceholder',
-              dm: '按租户名称搜索',
+              dm: 'Search by tenant name',
             })}
             onChange={(event) => setSearchName(event.target.value)}
             onSearch={(value) => setQueryName(value.trim())}
             style={{ width: 260 }}
           />
-          <Button type="primary" disabled={!isSuperAdmin} onClick={() => setCreateVisible(true)}>
+          <Button
+            type="primary"
+            disabled={!isSuperAdmin}
+            onClick={() => setCreateVisible(true)}
+          >
             {$i18n.get({
               id: 'main.pages.Admin.Tenant.create',
-              dm: '新增租户',
+              dm: 'Create Tenant',
             })}
           </Button>
         </Space>
@@ -407,7 +546,7 @@ export default function TenantAdminPage() {
             showIcon
             message={$i18n.get({
               id: 'main.pages.Admin.Tenant.permissionHint',
-              dm: '仅平台管理员（SUPER_ADMIN）可访问租户管理能力',
+              dm: 'Only SUPER_ADMIN can access tenant management.',
             })}
             className={styles.permissionAlert}
           />
@@ -430,7 +569,7 @@ export default function TenantAdminPage() {
       <Modal
         title={$i18n.get({
           id: 'main.pages.Admin.Tenant.create',
-          dm: '新增租户',
+          dm: 'Create Tenant',
         })}
         open={createVisible}
         onCancel={() => setCreateVisible(false)}
@@ -454,9 +593,9 @@ export default function TenantAdminPage() {
             name="name"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.name',
-              dm: '租户名称',
+              dm: 'Tenant Name',
             })}
-            rules={[{ required: true, message: '请输入租户名称' }]}
+            rules={[{ required: true, message: 'Please input tenant name' }]}
           >
             <Input maxLength={64} />
           </Form.Item>
@@ -464,7 +603,7 @@ export default function TenantAdminPage() {
             name="description"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.description',
-              dm: '描述',
+              dm: 'Description',
             })}
           >
             <Input.TextArea maxLength={256} rows={3} />
@@ -492,7 +631,7 @@ export default function TenantAdminPage() {
       <Modal
         title={$i18n.get({
           id: 'main.pages.Admin.Tenant.edit',
-          dm: '编辑租户',
+          dm: 'Edit Tenant',
         })}
         open={editVisible}
         onCancel={() => {
@@ -508,9 +647,9 @@ export default function TenantAdminPage() {
             name="name"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.name',
-              dm: '租户名称',
+              dm: 'Tenant Name',
             })}
-            rules={[{ required: true, message: '请输入租户名称' }]}
+            rules={[{ required: true, message: 'Please input tenant name' }]}
           >
             <Input maxLength={64} />
           </Form.Item>
@@ -518,7 +657,7 @@ export default function TenantAdminPage() {
             name="description"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.description',
-              dm: '描述',
+              dm: 'Description',
             })}
           >
             <Input.TextArea maxLength={256} rows={3} />
@@ -527,14 +666,55 @@ export default function TenantAdminPage() {
       </Modal>
 
       <Modal
+        title={
+          activeTenant
+            ? $i18n.get({
+                id: 'main.pages.Admin.Tenant.adminListTitleWithTenant',
+                dm: `Tenant Admin List - ${activeTenant.name}`,
+              })
+            : $i18n.get({
+                id: 'main.pages.Admin.Tenant.adminList',
+                dm: 'Tenant Admin List',
+              })
+        }
+        open={adminListVisible}
+        footer={null}
+        width={920}
+        onCancel={() => {
+          setAdminListVisible(false);
+          setActiveTenant(null);
+          setTenantAdmins([]);
+          setAdminCurrent(1);
+          setAdminSize(ADMIN_LIST_PAGE_SIZE);
+          setAdminTotal(0);
+        }}
+      >
+        <Table
+          rowKey="account_id"
+          columns={adminColumns}
+          dataSource={tenantAdmins}
+          loading={adminListLoading}
+          pagination={{
+            current: adminCurrent,
+            pageSize: adminSize,
+            total: adminTotal,
+            showSizeChanger: true,
+          }}
+          onChange={onAdminTableChange}
+        />
+      </Modal>
+
+      <Modal
         title={$i18n.get({
           id: 'main.pages.Admin.Tenant.createAdmin',
-          dm: '创建管理员',
+          dm: 'Create Admin',
         })}
         open={adminVisible}
         onCancel={() => {
           setAdminVisible(false);
-          setActiveTenant(null);
+          if (!adminListVisible) {
+            setActiveTenant(null);
+          }
         }}
         onOk={onCreateTenantAdmin}
         confirmLoading={submitting}
@@ -545,9 +725,9 @@ export default function TenantAdminPage() {
             name="username"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.adminUsername',
-              dm: '用户名',
+              dm: 'Username',
             })}
-            rules={[{ required: true, message: '请输入用户名' }]}
+            rules={[{ required: true, message: 'Please input username' }]}
           >
             <Input maxLength={64} />
           </Form.Item>
@@ -555,9 +735,9 @@ export default function TenantAdminPage() {
             name="password"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.adminPassword',
-              dm: '密码',
+              dm: 'Password',
             })}
-            rules={[{ required: true, message: '请输入密码' }]}
+            rules={[{ required: true, message: 'Please input password' }]}
           >
             <Input.Password maxLength={64} />
           </Form.Item>
@@ -565,7 +745,7 @@ export default function TenantAdminPage() {
             name="nickname"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.adminNickname',
-              dm: '昵称',
+              dm: 'Nickname',
             })}
           >
             <Input maxLength={64} />
@@ -574,7 +754,7 @@ export default function TenantAdminPage() {
             name="email"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.adminEmail',
-              dm: '邮箱',
+              dm: 'Email',
             })}
           >
             <Input maxLength={128} />
@@ -583,7 +763,7 @@ export default function TenantAdminPage() {
             name="mobile"
             label={$i18n.get({
               id: 'main.pages.Admin.Tenant.adminMobile',
-              dm: '手机号',
+              dm: 'Mobile',
             })}
           >
             <Input maxLength={32} />
@@ -594,7 +774,7 @@ export default function TenantAdminPage() {
       <Modal
         title={$i18n.get({
           id: 'main.pages.Admin.Tenant.editQuota',
-          dm: '调整租户配额',
+          dm: 'Edit Tenant Quota',
         })}
         open={quotaVisible}
         onCancel={() => {
@@ -610,35 +790,35 @@ export default function TenantAdminPage() {
             <Form.Item
               name="max_users"
               label="max_users"
-              rules={[{ required: true, message: '必填' }]}
+              rules={[{ required: true, message: 'Required' }]}
             >
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item
               name="max_apps"
               label="max_apps"
-              rules={[{ required: true, message: '必填' }]}
+              rules={[{ required: true, message: 'Required' }]}
             >
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item
               name="max_workspaces"
               label="max_workspaces"
-              rules={[{ required: true, message: '必填' }]}
+              rules={[{ required: true, message: 'Required' }]}
             >
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item
               name="max_storage_gb"
               label="max_storage_gb"
-              rules={[{ required: true, message: '必填' }]}
+              rules={[{ required: true, message: 'Required' }]}
             >
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item
               name="max_api_calls_per_day"
               label="max_api_calls_per_day"
-              rules={[{ required: true, message: '必填' }]}
+              rules={[{ required: true, message: 'Required' }]}
             >
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>

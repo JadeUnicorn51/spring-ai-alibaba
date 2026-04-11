@@ -4,7 +4,9 @@ import { IApiResponse } from '@/types/common';
 import type {
   ICreateTenantAdminParams,
   ICreateTenantParams,
+  IGetTenantAdminListParams,
   IGetTenantListParams,
+  ITenantAdmin,
   ITenant,
   IUpdateTenantParams,
   IUpdateTenantQuotaParams,
@@ -84,4 +86,16 @@ export async function createTenantAdmin(
     data: params,
   });
   return response.data as IApiResponse<string>;
+}
+
+export async function getTenantAdminList(
+  tenantId: string,
+  params?: IGetTenantAdminListParams,
+): Promise<IApiResponse<IPagingList<ITenantAdmin>>> {
+  const response = await request({
+    url: `/admin/v1/tenants/${tenantId}/admins`,
+    method: 'GET',
+    params,
+  });
+  return response.data as IApiResponse<IPagingList<ITenantAdmin>>;
 }

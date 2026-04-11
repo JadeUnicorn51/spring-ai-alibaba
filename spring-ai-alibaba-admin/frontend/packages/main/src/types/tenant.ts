@@ -50,3 +50,21 @@ export interface ICreateTenantAdminParams {
   email?: string;
   mobile?: string;
 }
+
+export interface IGetTenantAdminListParams {
+  current?: number;
+  size?: number;
+  name?: string;
+}
+
+export interface ITenantAdmin {
+  account_id: string;
+  tenant_id: string;
+  username: string;
+  nickname?: string;
+  email?: string;
+  mobile?: string;
+  type: string;
+  status?: string;
+  gmt_create?: string;
+}

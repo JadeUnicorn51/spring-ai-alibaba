@@ -107,6 +107,28 @@ public class TenantController {
 	}
 
 	/**
+	 * Lists tenant administrator accounts under the specified tenant.
+	 * @param tenantId Tenant ID
+	 * @param query Query parameters
+	 * @return Paginated list of tenant admins
+	 */
+	@GetMapping("/{tenantId}/admins")
+	@Operation(summary = "List tenant admins",
+			description = "Lists tenant administrator accounts under a tenant")
+	public Result<PagingList<Account>> listTenantAdmins(@PathVariable("tenantId") String tenantId,
+			BaseQuery query) {
+		validatePlatformAdmin();
+
+		Tenant tenant = tenantService.getTenant(tenantId);
+		if (tenant == null) {
+			throw new BizException(ErrorCode.TENANT_NOT_FOUND.toError());
+		}
+
+		PagingList<Account> accounts = accountService.listTenantAdmins(tenantId, query);
+		return Result.success(getRequestId(), accounts);
+	}
+
+	/**
 	 * Updates tenant information
 	 * @param tenantId Tenant ID
 	 * @param tenant Updated tenant information

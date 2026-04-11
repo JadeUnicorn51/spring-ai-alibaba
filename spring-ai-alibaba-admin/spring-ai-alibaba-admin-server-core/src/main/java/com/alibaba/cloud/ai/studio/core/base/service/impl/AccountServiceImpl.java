@@ -447,6 +447,44 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		return new PagingList<>(query.getCurrent(), query.getSize(), pageResult.getTotal(), accounts);
 	}
 
+	@Override
+	public PagingList<Account> listTenantAdmins(String tenantId, BaseQuery query) {
+		RequestContext context = RequestContextHolder.getRequestContext();
+		AccountEntity operator = checkAdminPermission(context.getAccountId());
+		if (operator.getType() != AccountType.SUPER_ADMIN) {
+			throw new BizException(ErrorCode.PERMISSION_DENIED.toError());
+		}
+		if (StringUtils.isBlank(tenantId)) {
+			throw new BizException(ErrorCode.MISSING_PARAMS.toError("tenant_id"));
+		}
+
+		BaseQuery safeQuery = query == null ? new BaseQuery() : query;
+
+		LambdaQueryWrapper<AccountEntity> queryWrapper = new LambdaQueryWrapper<>();
+		queryWrapper.eq(AccountEntity::getTenantId, tenantId)
+			.and(wrapper -> wrapper.eq(AccountEntity::getType, AccountType.TENANT_ADMIN)
+				.or()
+				.eq(AccountEntity::getType, AccountType.ADMIN))
+			.ne(AccountEntity::getStatus, AccountStatus.DELETED.getStatus());
+		if (StringUtils.isNotBlank(safeQuery.getName())) {
+			queryWrapper.like(AccountEntity::getUsername, safeQuery.getName());
+		}
+		queryWrapper.orderByDesc(AccountEntity::getId);
+
+		Page<AccountEntity> page = new Page<>(safeQuery.getCurrent(), safeQuery.getSize());
+		IPage<AccountEntity> pageResult = this.page(page, queryWrapper);
+
+		List<Account> accounts;
+		if (CollectionUtils.isEmpty(pageResult.getRecords())) {
+			accounts = new ArrayList<>();
+		}
+		else {
+			accounts = pageResult.getRecords().stream().map(this::toAccountDTO).toList();
+		}
+
+		return new PagingList<>(safeQuery.getCurrent(), safeQuery.getSize(), pageResult.getTotal(), accounts);
+	}
+
 	/**
 	 * Retrieves account by ID
 	 * @param accountId Account ID

@@ -187,3 +187,30 @@ Completed in this round:
 Next step:
 
 - [ ] Add tenant-admin lifecycle operations on platform side (list tenant admins, disable/enable/reset password) to complete full governance loop.
+
+## 11. 2026-04-11 Update (Step 3)
+
+Completed in this round:
+
+- [x] Backend API for tenant-admin list:
+  - Added `GET /admin/v1/tenants/{tenantId}/admins` to query tenant admins by tenant scope.
+  - Added service-layer method `listTenantAdmins(tenantId, query)` with `tenant_id`-scoped filtering and role filter (`tenant_admin` / legacy `admin`).
+  - Files:
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/controller/TenantController.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/AccountService.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/impl/AccountServiceImpl.java`
+- [x] Frontend platform tenant page enhancement:
+  - Added `Admin List` action in `/admin/tenants`.
+  - Added tenant-admin list modal with pagination (querying `/admin/v1/tenants/{tenantId}/admins`).
+  - Kept existing `Create Admin` flow and auto-refresh list after successful creation.
+  - Files:
+    - `frontend/packages/main/src/services/tenant.ts`
+    - `frontend/packages/main/src/types/tenant.ts`
+    - `frontend/packages/main/src/pages/Admin/Tenant/index.tsx`
+- [x] Build verification passed:
+  - `mvn -pl spring-ai-alibaba-admin-server-start -am -DskipTests compile`
+  - `npm run build -w packages/main`
+
+Next step:
+
+- [ ] Add tenant-admin lifecycle operations: enable/disable tenant admin and reset password from platform tenant governance page.

@@ -86,6 +86,11 @@ public interface AccountService extends IService<AccountEntity> {
 	PagingList<Account> listAccounts(BaseQuery query);
 
 	/**
+	 * Retrieves tenant administrator accounts under a specific tenant.
+	 */
+	PagingList<Account> listTenantAdmins(String tenantId, BaseQuery query);
+
+	/**
 	 * Gets account details by ID
 	 */
 	Account getAccount(String accountId);
