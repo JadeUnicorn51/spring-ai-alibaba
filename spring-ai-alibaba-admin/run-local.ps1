@@ -74,7 +74,7 @@ $backendModuleDir = Join-Path $projectRoot "spring-ai-alibaba-admin-server-start
 $frontendDir = Join-Path $projectRoot "frontend\packages\main"
 $composeFile = Join-Path $projectRoot "deploy\docker-compose\docker-compose-service.yaml"
 $backendJar = Join-Path $backendModuleDir "target\spring-ai-alibaba-admin-server-start.jar"
-$backendPort = 8200
+$backendPort = 28080
 
 $startBackend = -not $FrontendOnly
 $startFrontend = -not $BackendOnly

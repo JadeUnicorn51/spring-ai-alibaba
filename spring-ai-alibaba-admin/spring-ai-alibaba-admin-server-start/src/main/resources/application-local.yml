@@ -1,7 +1,7 @@
 # Local development environment configuration
 # To use this profile, run with: -Dspring.profiles.active=local
 server:
-  port: 8200
+  port: 28080
   compression:
     enabled: true
 spring:

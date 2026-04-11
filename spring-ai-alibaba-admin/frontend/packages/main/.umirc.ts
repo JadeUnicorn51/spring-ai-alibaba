@@ -183,19 +183,19 @@ export default defineConfig({
   ],
   proxy: {
     '/api': {
-      target: process.env.WEB_SERVER || 'http://localhost:8200',
+      target: process.env.WEB_SERVER || 'http://localhost:28080',
       changeOrigin: true,
     },
     '/console': {
-      target: process.env.WEB_SERVER || 'http://localhost:8200',
+      target: process.env.WEB_SERVER || 'http://localhost:28080',
       changeOrigin: true,
     },
     '/admin/v1': {
-      target: process.env.WEB_SERVER || 'http://localhost:8200',
+      target: process.env.WEB_SERVER || 'http://localhost:28080',
       changeOrigin: true,
     },
     '/oauth2': {
-      target: process.env.WEB_SERVER || 'http://localhost:8200',
+      target: process.env.WEB_SERVER || 'http://localhost:28080',
       changeOrigin: true,
     },
   },
