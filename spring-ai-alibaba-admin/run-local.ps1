@@ -74,6 +74,7 @@ $backendModuleDir = Join-Path $projectRoot "spring-ai-alibaba-admin-server-start
 $frontendDir = Join-Path $projectRoot "frontend\packages\main"
 $composeFile = Join-Path $projectRoot "deploy\docker-compose\docker-compose-service.yaml"
 $backendJar = Join-Path $backendModuleDir "target\spring-ai-alibaba-admin-server-start.jar"
+$backendPort = 8200
 
 $startBackend = -not $FrontendOnly
 $startFrontend = -not $BackendOnly
@@ -171,7 +172,7 @@ if ($startBackend) {
 `$env:ROCKETMQ_DOCUMENT_INDEX_GROUP='group_saa_studio_document_index'
 `$env:MANAGEMENT_OTLP_TRACING_EXPORT_ENDPOINT='http://127.0.0.1:4318/v1/traces'
 Set-Location '$projectRoot'
-& '$javaCommand' -jar '$backendJar' --spring.profiles.active=local
+& '$javaCommand' -jar '$backendJar' --spring.profiles.active=local --server.port=$backendPort
 "@
 
     Start-Process powershell -ArgumentList @(
@@ -179,7 +180,7 @@ Set-Location '$projectRoot'
         "-ExecutionPolicy", "Bypass",
         "-Command", $backendCmd
     ) | Out-Null
-    Write-Ok "Backend launching: http://127.0.0.1:8080"
+    Write-Ok "Backend launching: http://127.0.0.1:$backendPort"
 }
 
 if ($startFrontend) {
@@ -187,7 +188,7 @@ if ($startFrontend) {
     $frontendCmd = @"
 Set-Location '$frontendDir'
 if (Test-Path '.\src\.umi') { Remove-Item '.\src\.umi' -Recurse -Force }
-`$env:WEB_SERVER='http://127.0.0.1:8080'
+`$env:WEB_SERVER='http://127.0.0.1:$backendPort'
 npm run dev
 "@
 
