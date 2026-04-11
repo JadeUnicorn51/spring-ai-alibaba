@@ -339,3 +339,24 @@ Completed in this round:
 Next step:
 
 - [ ] Start P0 isolation regression testing for cross-tenant read/write access and privilege-boundary checks.
+
+## 16. 2026-04-11 Update (Step 8)
+
+Completed in this round:
+
+- [x] Added initial P0 tenant-governance regression tests (service layer):
+  - Cross-tenant operation is rejected when platform admin targets tenant-admin in another tenant.
+  - Non-`SUPER_ADMIN` operator cannot list tenant admins from platform-governance API path.
+  - Deleting the last tenant-admin in a tenant is rejected by policy.
+  - File:
+    - `spring-ai-alibaba-admin-server-core/src/test/java/com/alibaba/cloud/ai/studio/core/base/service/impl/AccountServiceTenantGovernanceTest.java`
+- [x] Build verification passed for test sources:
+  - `mvn -pl spring-ai-alibaba-admin-server-core -am -DskipTests test-compile`
+
+Notes:
+
+- Current project-level surefire setup does not execute JUnit5 tests by default (`mvn test` shows `Tests run: 0` in this repo baseline). The new regression tests are compiled and ready; execution requires surefire/JUnit-platform alignment in build config.
+
+Next step:
+
+- [ ] Add executable integration test pipeline for tenant isolation (HTTP-level, cross-tenant read/write and auth boundary) by aligning test runner config and adding server-start integration tests.
