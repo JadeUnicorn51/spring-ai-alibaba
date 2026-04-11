@@ -135,3 +135,14 @@ export async function resetTenantAdminPassword(
   });
   return response.data as IApiResponse<void>;
 }
+
+export async function deleteTenantAdmin(
+  tenantId: string,
+  accountId: string,
+): Promise<IApiResponse<void>> {
+  const response = await request({
+    url: `/admin/v1/tenants/${tenantId}/admins/${accountId}`,
+    method: 'DELETE',
+  });
+  return response.data as IApiResponse<void>;
+}

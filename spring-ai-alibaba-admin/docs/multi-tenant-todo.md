@@ -249,3 +249,31 @@ Completed in this round:
 Next step:
 
 - [ ] Add tenant-admin delete/recreate policy and operation audit records for platform governance actions.
+
+## 13. 2026-04-11 Update (Step 5)
+
+Completed in this round:
+
+- [x] Tenant-admin delete policy (platform side):
+  - Added soft-delete API: `DELETE /admin/v1/tenants/{tenantId}/admins/{accountId}`.
+  - Enforced policy: at least one tenant-admin account must remain per tenant (`status != deleted` scope).
+  - Files:
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/controller/TenantController.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/AccountService.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/impl/AccountServiceImpl.java`
+- [x] Platform governance operation audit logs (first version):
+  - Added explicit monitor logs for tenant-admin lifecycle operations:
+    `create/enable/disable/resetPassword/delete`.
+  - Log service tag: `PlatformTenantAdminGovernance`.
+  - File:
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/controller/TenantController.java`
+- [x] Frontend tenant-admin list enhanced with delete action:
+  - Added `Delete` action button in `/admin/tenants` -> admin list modal.
+  - Added API wiring for delete operation.
+  - Files:
+    - `frontend/packages/main/src/services/tenant.ts`
+    - `frontend/packages/main/src/pages/Admin/Tenant/index.tsx`
+
+Next step:
+
+- [ ] Add tenant-admin recreate guidance (bootstrap from platform console) and optional persistent DB audit table for governance operations.

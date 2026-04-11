@@ -3,6 +3,7 @@ import $i18n from '@/i18n';
 import {
   createTenantAdmin,
   createTenant,
+  deleteTenantAdmin,
   disableTenantAdmin,
   disableTenant,
   enableTenantAdmin,
@@ -271,6 +272,26 @@ export default function TenantAdminPage() {
     });
   };
 
+  const onDeleteTenantAdmin = (admin: ITenantAdmin) => {
+    if (!activeTenant) return;
+    Modal.confirm({
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.deleteAdminConfirm',
+        dm: 'Delete this tenant admin?',
+      }),
+      onOk: async () => {
+        await deleteTenantAdmin(activeTenant.tenant_id, admin.account_id);
+        message.success(
+          $i18n.get({
+            id: 'main.pages.Admin.Tenant.deleteAdminSuccess',
+            dm: 'Tenant admin deleted',
+          }),
+        );
+        fetchTenantAdmins(activeTenant.tenant_id, adminCurrent, adminSize);
+      },
+    });
+  };
+
   const openResetTenantAdminPasswordModal = (admin: ITenantAdmin) => {
     setActiveTenantAdmin(admin);
     resetPasswordForm.setFieldsValue({ new_password: '' });
@@ -478,6 +499,18 @@ export default function TenantAdminPage() {
               {$i18n.get({
                 id: 'main.pages.Admin.Tenant.resetAdminPassword',
                 dm: 'Reset Password',
+              })}
+            </Button>
+            <Button
+              size="small"
+              type="link"
+              danger
+              disabled={!isSuperAdmin}
+              onClick={() => onDeleteTenantAdmin(record)}
+            >
+              {$i18n.get({
+                id: 'main.pages.Admin.Tenant.deleteAdmin',
+                dm: 'Delete',
               })}
             </Button>
           </Space>

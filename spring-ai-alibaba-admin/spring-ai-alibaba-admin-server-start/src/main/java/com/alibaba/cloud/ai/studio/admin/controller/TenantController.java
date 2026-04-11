@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.studio.core.base.service.AccountService;
 import com.alibaba.cloud.ai.studio.core.base.service.TenantService;
 import com.alibaba.cloud.ai.studio.runtime.domain.BaseQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.PagingList;
+import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
 import com.alibaba.cloud.ai.studio.runtime.domain.Result;
 import com.alibaba.cloud.ai.studio.runtime.domain.account.Account;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.Tenant;
@@ -34,10 +35,13 @@ import com.alibaba.cloud.ai.studio.runtime.enums.ErrorCode;
 import com.alibaba.cloud.ai.studio.runtime.exception.BizException;
 import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
 import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
+import com.alibaba.cloud.ai.studio.core.utils.LogUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * Tenant management controller for platform administrators.
@@ -200,6 +204,7 @@ public class TenantController {
 	@Operation(summary = "Create tenant admin", description = "Creates a tenant administrator account for the tenant")
 	public Result<String> createTenantAdmin(@PathVariable("tenantId") String tenantId,
 			@RequestBody TenantAdminCreateRequest request) {
+		long start = System.currentTimeMillis();
 		validatePlatformAdmin();
 
 		if (request == null) {
@@ -230,6 +235,8 @@ public class TenantController {
 		account.setTenantId(tenantId);
 
 		String accountId = accountService.createAccount(account);
+		auditTenantAdminAction("createTenantAdmin", start,
+				Map.of("tenantId", tenantId, "accountId", accountId, "username", request.getUsername()));
 		return Result.success(getRequestId(), accountId);
 	}
 
@@ -243,10 +250,13 @@ public class TenantController {
 	@Operation(summary = "Enable tenant admin", description = "Enables a tenant administrator account")
 	public Result<Void> enableTenantAdmin(@PathVariable("tenantId") String tenantId,
 			@PathVariable("accountId") String accountId) {
+		long start = System.currentTimeMillis();
 		validatePlatformAdmin();
 		validateTenantExists(tenantId);
 
 		accountService.updateTenantAdminStatus(tenantId, accountId, AccountStatus.NORMAL);
+		auditTenantAdminAction("enableTenantAdmin", start,
+				Map.of("tenantId", tenantId, "accountId", accountId, "status", AccountStatus.NORMAL.getValue()));
 		return Result.success(getRequestId(), null);
 	}
 
@@ -260,10 +270,13 @@ public class TenantController {
 	@Operation(summary = "Disable tenant admin", description = "Disables a tenant administrator account")
 	public Result<Void> disableTenantAdmin(@PathVariable("tenantId") String tenantId,
 			@PathVariable("accountId") String accountId) {
+		long start = System.currentTimeMillis();
 		validatePlatformAdmin();
 		validateTenantExists(tenantId);
 
 		accountService.updateTenantAdminStatus(tenantId, accountId, AccountStatus.DISABLED);
+		auditTenantAdminAction("disableTenantAdmin", start,
+				Map.of("tenantId", tenantId, "accountId", accountId, "status", AccountStatus.DISABLED.getValue()));
 		return Result.success(getRequestId(), null);
 	}
 
@@ -279,6 +292,7 @@ public class TenantController {
 	public Result<Void> resetTenantAdminPassword(@PathVariable("tenantId") String tenantId,
 			@PathVariable("accountId") String accountId,
 			@RequestBody TenantAdminResetPasswordRequest request) {
+		long start = System.currentTimeMillis();
 		validatePlatformAdmin();
 		validateTenantExists(tenantId);
 
@@ -287,6 +301,27 @@ public class TenantController {
 		}
 
 		accountService.resetTenantAdminPassword(tenantId, accountId, request.getNewPassword());
+		auditTenantAdminAction("resetTenantAdminPassword", start,
+				Map.of("tenantId", tenantId, "accountId", accountId));
+		return Result.success(getRequestId(), null);
+	}
+
+	/**
+	 * Deletes (soft delete) a tenant administrator account.
+	 * @param tenantId Tenant ID
+	 * @param accountId Account ID
+	 * @return Success status
+	 */
+	@DeleteMapping("/{tenantId}/admins/{accountId}")
+	@Operation(summary = "Delete tenant admin", description = "Deletes a tenant administrator account")
+	public Result<Void> deleteTenantAdmin(@PathVariable("tenantId") String tenantId,
+			@PathVariable("accountId") String accountId) {
+		long start = System.currentTimeMillis();
+		validatePlatformAdmin();
+		validateTenantExists(tenantId);
+
+		accountService.deleteTenantAdmin(tenantId, accountId);
+		auditTenantAdminAction("deleteTenantAdmin", start, Map.of("tenantId", tenantId, "accountId", accountId));
 		return Result.success(getRequestId(), null);
 	}
 
@@ -304,6 +339,11 @@ public class TenantController {
 		if (tenant == null) {
 			throw new BizException(ErrorCode.TENANT_NOT_FOUND.toError());
 		}
+	}
+
+	private void auditTenantAdminAction(String action, long start, Object details) {
+		RequestContext context = RequestContextHolder.getRequestContext();
+		LogUtils.monitor(context, "PlatformTenantAdminGovernance", action, start, LogUtils.SUCCESS, details, null);
 	}
 
 	/**

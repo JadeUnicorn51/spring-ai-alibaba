@@ -530,6 +530,33 @@ public class AccountServiceImpl extends ServiceImpl<AccountMapper, AccountEntity
 		redisManager.put(cacheKey, target);
 	}
 
+	@Override
+	public void deleteTenantAdmin(String tenantId, String accountId) {
+		AccountEntity operator = getCurrentSuperAdminOperator();
+		AccountEntity target = getTargetTenantAdmin(tenantId, accountId);
+
+		LambdaQueryWrapper<AccountEntity> queryWrapper = new LambdaQueryWrapper<>();
+		queryWrapper.eq(AccountEntity::getTenantId, tenantId)
+			.and(wrapper -> wrapper.eq(AccountEntity::getType, AccountType.TENANT_ADMIN)
+				.or()
+				.eq(AccountEntity::getType, AccountType.ADMIN))
+			.ne(AccountEntity::getStatus, AccountStatus.DELETED.getStatus())
+			.ne(AccountEntity::getAccountId, accountId);
+		long remaining = this.count(queryWrapper);
+		if (remaining <= 0) {
+			throw new BizException(
+					ErrorCode.INVALID_PARAMS.toError("account_id", "at least one tenant admin must remain"));
+		}
+
+		target.setStatus(AccountStatus.DELETED);
+		target.setModifier(operator.getAccountId());
+		target.setGmtModified(new Date());
+		this.updateById(target);
+
+		String cacheKey = getAccountCacheKey(accountId);
+		redisManager.delete(cacheKey);
+	}
+
 	/**
 	 * Retrieves account by ID
 	 * @param accountId Account ID

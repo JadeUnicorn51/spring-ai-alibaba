@@ -102,6 +102,11 @@ public interface AccountService extends IService<AccountEntity> {
 	void resetTenantAdminPassword(String tenantId, String accountId, String newPassword);
 
 	/**
+	 * Deletes (soft delete) a tenant administrator under a specific tenant.
+	 */
+	void deleteTenantAdmin(String tenantId, String accountId);
+
+	/**
 	 * Gets account details by ID
 	 */
 	Account getAccount(String accountId);
