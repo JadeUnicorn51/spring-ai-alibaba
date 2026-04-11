@@ -143,3 +143,24 @@
 - [ ] 租户管理员无法创建跨租户或平台管理员账号。
 - [ ] 平台管理员可完成租户全生命周期管理。
 - [ ] 平台前端 + 租户前端边界清晰，接口路径不混用。
+
+---
+
+## 9. 2026-04-11 Update
+
+Completed in this round:
+
+- [x] Platform bootstrap compatibility:
+  - Auto-promote legacy platform account (`type=admin` + `tenant_id is null`) to `super_admin` when no `SUPER_ADMIN` exists.
+  - File: `spring-ai-alibaba-admin-server-core/.../PlatformAdminBootstrapRunner.java`
+- [x] Seed/migration sync:
+  - Seed account `saa` default type changed to `super_admin`.
+  - Tenant migration script adds legacy platform admin promotion SQL.
+  - Files: `docker/middleware/init/mysql/agentscope-schema.sql`, `docker/middleware/init/mysql/tenant-schema.sql`
+- [x] Frontend platform menu first-load fix:
+  - Side menu now reacts to async user info load (no manual click required).
+  - Files: `frontend/packages/main/src/layouts/LoginProvider.tsx`, `frontend/packages/main/src/layouts/SideMenuLayout.tsx`
+
+Next step:
+
+- [ ] Add platform tenant-governance capability to create/manage tenant admin accounts directly from `/admin/tenants`.

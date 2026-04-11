@@ -106,3 +106,9 @@ ALTER TABLE agent_schema ADD COLUMN tenant_id VARCHAR(64) COMMENT 'Tenant ID' AF
 ALTER TABLE agent_schema ADD INDEX idx_tenant_id (tenant_id);
 
 -- Provider and Model are preset/shared tables, no tenant_id needed
+
+-- Promote legacy platform admin account to SUPER_ADMIN for tenant-platform access.
+UPDATE account
+SET type = 'super_admin'
+WHERE type = 'admin'
+  AND tenant_id IS NULL;

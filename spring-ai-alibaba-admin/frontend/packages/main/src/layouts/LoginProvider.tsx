@@ -4,12 +4,15 @@ import { useRequest } from 'ahooks';
 import { Spin } from 'antd';
 import { history } from 'umi';
 
+export const USER_UPDATED_EVENT = 'saa:user-updated';
+
 export default function (props: {
   children: React.ReactNode | React.ReactNode[];
 }) {
   const { loading } = useRequest(getAccountInfo, {
     onSuccess(res) {
       window.g_config.user = res.data;
+      window.dispatchEvent(new Event(USER_UPDATED_EVENT));
     },
     onError(error: any) {
       if (new URL(window.location.href).searchParams.get('ignore-login'))

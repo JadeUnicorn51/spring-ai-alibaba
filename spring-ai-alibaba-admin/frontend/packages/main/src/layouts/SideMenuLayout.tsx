@@ -23,7 +23,7 @@ import $i18n from '@/i18n';
 import Header from './Header';
 import styles from './index.module.less';
 import LangSelect from './LangSelect';
-import LoginProvider from './LoginProvider';
+import LoginProvider, { USER_UPDATED_EVENT } from './LoginProvider';
 import SettingDropdown from './SettingDropdown';
 import ThemeSelect from './ThemeSelect';
 import UserAccountModal from '@/components/UserAccountModal';
@@ -121,10 +121,18 @@ const getSelectedMenuKey = (pathname: string): string => {
 export default function SideMenuLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const isSuperAdmin = isSuperAdminAccountType(window.g_config.user?.type);
   const [collapsed, setCollapsed] = useState(false);
   const [models, setModels] = useState<any[]>([]);
   const [modelNameMap, setModelNameMap] = useState<Record<number, string>>({});
+  const [accountType, setAccountType] = useState<string | undefined>(window.g_config.user?.type);
+  const isSuperAdmin = isSuperAdminAccountType(accountType);
+
+  useEffect(() => {
+    const syncAccountType = () => setAccountType(window.g_config.user?.type);
+    syncAccountType();
+    window.addEventListener(USER_UPDATED_EVENT, syncAccountType);
+    return () => window.removeEventListener(USER_UPDATED_EVENT, syncAccountType);
+  }, []);
 
   // 加载模型列表（用于 legacy 页面）
   useEffect(() => {
