@@ -305,7 +305,7 @@ export default function TenantAdminPage() {
       title: 'Account ID',
       dataIndex: 'account_id',
       key: 'account_id',
-      width: 220,
+      width: 180,
       ellipsis: true,
     },
     {
@@ -315,7 +315,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'username',
       key: 'username',
-      width: 160,
+      width: 140,
     },
     {
       title: $i18n.get({
@@ -324,7 +324,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'nickname',
       key: 'nickname',
-      width: 160,
+      width: 140,
       render: (value?: string) => value || '-',
     },
     {
@@ -334,7 +334,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'type',
       key: 'type',
-      width: 140,
+      width: 120,
       render: (value?: string) => value || '-',
     },
     {
@@ -344,7 +344,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'status',
       key: 'status',
-      width: 120,
+      width: 110,
       render: (value?: string) => {
         const normalized = (value || '').toLowerCase();
         if (normalized === 'normal') {
@@ -363,7 +363,7 @@ export default function TenantAdminPage() {
       }),
       dataIndex: 'gmt_create',
       key: 'gmt_create',
-      width: 180,
+      width: 160,
       render: (value?: string) =>
         value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-',
     },
