@@ -277,3 +277,35 @@ Completed in this round:
 Next step:
 
 - [ ] Add tenant-admin recreate guidance (bootstrap from platform console) and optional persistent DB audit table for governance operations.
+
+## 14. 2026-04-11 Update (Step 6)
+
+Completed in this round:
+
+- [x] Persistent DB audit table for platform tenant governance:
+  - Added table `tenant_governance_audit_log` in init and migration scripts.
+  - Files:
+    - `docker/middleware/init/mysql/agentscope-schema.sql`
+    - `docker/middleware/init/mysql/tenant-schema.sql`
+- [x] Backend audit persistence and query API:
+  - Added audit entity/mapper/service for tenant governance records.
+  - Existing tenant-admin lifecycle actions now write both monitor logs and DB audit records.
+  - Added list API: `GET /admin/v1/tenants/{tenantId}/admin-audits`
+  - Files:
+    - `spring-ai-alibaba-admin-server-runtime/src/main/java/com/alibaba/cloud/ai/studio/runtime/domain/tenant/TenantGovernanceAuditLog.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/entity/TenantGovernanceAuditLogEntity.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/mapper/TenantGovernanceAuditLogMapper.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/TenantGovernanceAuditLogService.java`
+    - `spring-ai-alibaba-admin-server-core/src/main/java/com/alibaba/cloud/ai/studio/core/base/service/impl/TenantGovernanceAuditLogServiceImpl.java`
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/controller/TenantController.java`
+- [x] Frontend audit view on platform tenant page:
+  - Added `Admin Audits` action on `/admin/tenants`.
+  - Added audit list modal and API integration.
+  - Files:
+    - `frontend/packages/main/src/services/tenant.ts`
+    - `frontend/packages/main/src/types/tenant.ts`
+    - `frontend/packages/main/src/pages/Admin/Tenant/index.tsx`
+
+Next step:
+
+- [ ] Add tenant-admin recreate guidance + audit list filter fields (operation/operator/target) for easier governance troubleshooting.

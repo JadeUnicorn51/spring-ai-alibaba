@@ -72,3 +72,20 @@ export interface ITenantAdmin {
 export interface IResetTenantAdminPasswordParams {
   new_password: string;
 }
+
+export interface IGetTenantAdminAuditListParams {
+  current?: number;
+  size?: number;
+  name?: string;
+}
+
+export interface ITenantAdminAudit {
+  id: number;
+  tenant_id: string;
+  operation: string;
+  operator_account_id?: string;
+  target_account_id?: string;
+  request_id?: string;
+  details?: string;
+  gmt_create?: string;
+}

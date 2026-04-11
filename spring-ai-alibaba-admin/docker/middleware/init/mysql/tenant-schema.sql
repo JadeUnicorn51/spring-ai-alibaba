@@ -112,3 +112,22 @@ UPDATE account
 SET type = 'super_admin'
 WHERE type = 'admin'
   AND tenant_id IS NULL;
+
+-- Tenant governance audit log table for platform actions.
+CREATE TABLE IF NOT EXISTS tenant_governance_audit_log
+(
+    id                  BIGINT(20) UNSIGNED AUTO_INCREMENT NOT NULL COMMENT 'pk',
+    tenant_id           VARCHAR(64)                        NOT NULL COMMENT 'tenant id',
+    operation           VARCHAR(128)                       NOT NULL COMMENT 'governance operation',
+    operator_account_id VARCHAR(64)                                 DEFAULT NULL COMMENT 'operator account id',
+    target_account_id   VARCHAR(64)                                 DEFAULT NULL COMMENT 'target account id',
+    request_id          VARCHAR(64)                                 DEFAULT NULL COMMENT 'request id',
+    details             TEXT                                        DEFAULT NULL COMMENT 'operation details json',
+    gmt_create          DATETIME                           NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
+    PRIMARY KEY (id),
+    KEY idx_tenant_id_gmt_create (tenant_id, gmt_create),
+    KEY idx_target_account_id (target_account_id)
+) ENGINE = InnoDB
+  AUTO_INCREMENT = 10000
+  DEFAULT CHARSET = utf8mb4
+  COMMENT ='tenant governance audit logs';

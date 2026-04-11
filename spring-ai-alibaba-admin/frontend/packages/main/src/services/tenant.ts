@@ -4,9 +4,11 @@ import { IApiResponse } from '@/types/common';
 import type {
   ICreateTenantAdminParams,
   ICreateTenantParams,
+  IGetTenantAdminAuditListParams,
   IGetTenantAdminListParams,
   IGetTenantListParams,
   IResetTenantAdminPasswordParams,
+  ITenantAdminAudit,
   ITenantAdmin,
   ITenant,
   IUpdateTenantParams,
@@ -145,4 +147,16 @@ export async function deleteTenantAdmin(
     method: 'DELETE',
   });
   return response.data as IApiResponse<void>;
+}
+
+export async function getTenantAdminAuditList(
+  tenantId: string,
+  params?: IGetTenantAdminAuditListParams,
+): Promise<IApiResponse<IPagingList<ITenantAdminAudit>>> {
+  const response = await request({
+    url: `/admin/v1/tenants/${tenantId}/admin-audits`,
+    method: 'GET',
+    params,
+  });
+  return response.data as IApiResponse<IPagingList<ITenantAdminAudit>>;
 }

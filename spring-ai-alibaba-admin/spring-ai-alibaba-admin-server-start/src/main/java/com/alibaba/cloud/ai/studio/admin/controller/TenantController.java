@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.studio.admin.controller;
 
 import com.alibaba.cloud.ai.studio.core.base.service.AccountService;
 import com.alibaba.cloud.ai.studio.core.base.service.TenantService;
+import com.alibaba.cloud.ai.studio.core.base.service.TenantGovernanceAuditLogService;
 import com.alibaba.cloud.ai.studio.runtime.domain.BaseQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.PagingList;
 import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
@@ -27,6 +28,7 @@ import com.alibaba.cloud.ai.studio.runtime.domain.tenant.Tenant;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminCreateRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminResetPasswordRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantCreateRequest;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantGovernanceAuditLog;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantQuotaDTO;
 import com.alibaba.cloud.ai.studio.runtime.enums.AccountStatus;
 import com.alibaba.cloud.ai.studio.runtime.enums.AccountType;
@@ -58,9 +60,13 @@ public class TenantController {
 
 	private final AccountService accountService;
 
-	public TenantController(TenantService tenantService, AccountService accountService) {
+	private final TenantGovernanceAuditLogService tenantGovernanceAuditLogService;
+
+	public TenantController(TenantService tenantService, AccountService accountService,
+			TenantGovernanceAuditLogService tenantGovernanceAuditLogService) {
 		this.tenantService = tenantService;
 		this.accountService = accountService;
+		this.tenantGovernanceAuditLogService = tenantGovernanceAuditLogService;
 	}
 
 	/**
@@ -132,6 +138,25 @@ public class TenantController {
 
 		PagingList<Account> accounts = accountService.listTenantAdmins(tenantId, query);
 		return Result.success(getRequestId(), accounts);
+	}
+
+	/**
+	 * Lists tenant governance audit logs under the specified tenant.
+	 * @param tenantId Tenant ID
+	 * @param query Query parameters
+	 * @return Paginated list of governance audit logs
+	 */
+	@GetMapping("/{tenantId}/admin-audits")
+	@Operation(summary = "List tenant admin audits",
+			description = "Lists governance audit logs for tenant administrator operations")
+	public Result<PagingList<TenantGovernanceAuditLog>> listTenantAdminAudits(
+			@PathVariable("tenantId") String tenantId, BaseQuery query) {
+		validatePlatformAdmin();
+		validateTenantExists(tenantId);
+
+		PagingList<TenantGovernanceAuditLog> logs = tenantGovernanceAuditLogService.listTenantAdminAudits(tenantId,
+				query);
+		return Result.success(getRequestId(), logs);
 	}
 
 	/**
@@ -344,6 +369,13 @@ public class TenantController {
 	private void auditTenantAdminAction(String action, long start, Object details) {
 		RequestContext context = RequestContextHolder.getRequestContext();
 		LogUtils.monitor(context, "PlatformTenantAdminGovernance", action, start, LogUtils.SUCCESS, details, null);
+		if (details instanceof Map<?, ?> detailMap) {
+			Object tenantIdObj = detailMap.get("tenantId");
+			String tenantId = tenantIdObj == null ? null : String.valueOf(tenantIdObj);
+			Object targetAccountIdObj = detailMap.get("accountId");
+			String targetAccountId = targetAccountIdObj == null ? null : String.valueOf(targetAccountIdObj);
+			tenantGovernanceAuditLogService.recordTenantAdminAudit(tenantId, action, targetAccountId, detailMap);
+		}
 	}
 
 	/**

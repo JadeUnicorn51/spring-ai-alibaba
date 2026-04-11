@@ -8,6 +8,7 @@ import {
   disableTenant,
   enableTenantAdmin,
   enableTenant,
+  getTenantAdminAuditList,
   getTenantAdminList,
   getTenantList,
   resetTenantAdminPassword,
@@ -19,6 +20,7 @@ import type {
   ICreateTenantParams,
   IResetTenantAdminPasswordParams,
   ITenant,
+  ITenantAdminAudit,
   ITenantAdmin,
   IUpdateTenantQuotaParams,
 } from '@/types/tenant';
@@ -54,6 +56,7 @@ interface TenantAdminFormValues extends ICreateTenantAdminParams {}
 interface ResetTenantAdminPasswordFormValues extends IResetTenantAdminPasswordParams {}
 
 const ADMIN_LIST_PAGE_SIZE = 10;
+const ADMIN_AUDIT_PAGE_SIZE = 10;
 
 export default function TenantAdminPage() {
   const [loading, setLoading] = useState(false);
@@ -69,6 +72,7 @@ export default function TenantAdminPage() {
   const [quotaVisible, setQuotaVisible] = useState(false);
   const [adminVisible, setAdminVisible] = useState(false);
   const [adminListVisible, setAdminListVisible] = useState(false);
+  const [adminAuditVisible, setAdminAuditVisible] = useState(false);
   const [resetPasswordVisible, setResetPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTenant, setActiveTenant] = useState<ITenant | null>(null);
@@ -79,6 +83,11 @@ export default function TenantAdminPage() {
   const [adminCurrent, setAdminCurrent] = useState(1);
   const [adminSize, setAdminSize] = useState(ADMIN_LIST_PAGE_SIZE);
   const [adminTotal, setAdminTotal] = useState(0);
+  const [adminAuditLoading, setAdminAuditLoading] = useState(false);
+  const [tenantAdminAudits, setTenantAdminAudits] = useState<ITenantAdminAudit[]>([]);
+  const [adminAuditCurrent, setAdminAuditCurrent] = useState(1);
+  const [adminAuditSize, setAdminAuditSize] = useState(ADMIN_AUDIT_PAGE_SIZE);
+  const [adminAuditTotal, setAdminAuditTotal] = useState(0);
 
   const [createForm] = Form.useForm<CreateTenantFormValues>();
   const [editForm] = Form.useForm<EditTenantFormValues>();
@@ -129,6 +138,26 @@ export default function TenantAdminPage() {
     }
   };
 
+  const fetchTenantAdminAudits = async (
+    tenantId: string,
+    page = adminAuditCurrent,
+    pageSize = adminAuditSize,
+  ) => {
+    setAdminAuditLoading(true);
+    try {
+      const response = await getTenantAdminAuditList(tenantId, {
+        current: page,
+        size: pageSize,
+      });
+      setTenantAdminAudits(response.data.records || []);
+      setAdminAuditCurrent(response.data.current);
+      setAdminAuditSize(response.data.size);
+      setAdminAuditTotal(response.data.total);
+    } finally {
+      setAdminAuditLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isSuperAdmin) {
       setTenants([]);
@@ -151,6 +180,13 @@ export default function TenantAdminPage() {
     const nextCurrent = pagination.current || 1;
     const nextSize = pagination.pageSize || adminSize;
     fetchTenantAdmins(activeTenant.tenant_id, nextCurrent, nextSize);
+  };
+
+  const onAdminAuditTableChange = (pagination: TablePaginationConfig) => {
+    if (!activeTenant) return;
+    const nextCurrent = pagination.current || 1;
+    const nextSize = pagination.pageSize || adminAuditSize;
+    fetchTenantAdminAudits(activeTenant.tenant_id, nextCurrent, nextSize);
   };
 
   const onCreate = async () => {
@@ -396,6 +432,12 @@ export default function TenantAdminPage() {
     fetchTenantAdmins(tenant.tenant_id, 1, ADMIN_LIST_PAGE_SIZE);
   };
 
+  const openTenantAdminAuditModal = (tenant: ITenant) => {
+    setActiveTenant(tenant);
+    setAdminAuditVisible(true);
+    fetchTenantAdminAudits(tenant.tenant_id, 1, ADMIN_AUDIT_PAGE_SIZE);
+  };
+
   const adminColumns: ColumnsType<ITenantAdmin> = [
     {
       title: 'Account ID',
@@ -519,6 +561,69 @@ export default function TenantAdminPage() {
     },
   ];
 
+  const adminAuditColumns: ColumnsType<ITenantAdminAudit> = [
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.createTime',
+        dm: 'Created At',
+      }),
+      dataIndex: 'gmt_create',
+      key: 'gmt_create',
+      width: 180,
+      render: (value?: string) =>
+        value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-',
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.auditOperation',
+        dm: 'Operation',
+      }),
+      dataIndex: 'operation',
+      key: 'operation',
+      width: 180,
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.auditOperator',
+        dm: 'Operator',
+      }),
+      dataIndex: 'operator_account_id',
+      key: 'operator_account_id',
+      width: 160,
+      render: (value?: string) => value || '-',
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.auditTarget',
+        dm: 'Target',
+      }),
+      dataIndex: 'target_account_id',
+      key: 'target_account_id',
+      width: 160,
+      render: (value?: string) => value || '-',
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.auditRequestId',
+        dm: 'Request ID',
+      }),
+      dataIndex: 'request_id',
+      key: 'request_id',
+      width: 200,
+      ellipsis: true,
+      render: (value?: string) => value || '-',
+    },
+    {
+      title: $i18n.get({
+        id: 'main.pages.Admin.Tenant.auditDetails',
+        dm: 'Details',
+      }),
+      dataIndex: 'details',
+      key: 'details',
+      render: (value?: string) => value || '-',
+    },
+  ];
+
   const columns: ColumnsType<ITenant> = [
     {
       title: 'Tenant ID',
@@ -582,9 +687,19 @@ export default function TenantAdminPage() {
         dm: 'Actions',
       }),
       key: 'actions',
-      width: 420,
+      width: 520,
       render: (_, record) => (
         <Space size={8} wrap>
+          <Button
+            size="small"
+            disabled={!isSuperAdmin}
+            onClick={() => openTenantAdminAuditModal(record)}
+          >
+            {$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminAuditList',
+              dm: 'Admin Audits',
+            })}
+          </Button>
           <Button
             size="small"
             disabled={!isSuperAdmin}
@@ -813,6 +928,45 @@ export default function TenantAdminPage() {
             <Input.TextArea maxLength={256} rows={3} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={
+          activeTenant
+            ? $i18n.get({
+                id: 'main.pages.Admin.Tenant.adminAuditTitleWithTenant',
+                dm: `Tenant Admin Audits - ${activeTenant.name}`,
+              })
+            : $i18n.get({
+                id: 'main.pages.Admin.Tenant.adminAuditList',
+                dm: 'Tenant Admin Audits',
+              })
+        }
+        open={adminAuditVisible}
+        footer={null}
+        width={980}
+        onCancel={() => {
+          setAdminAuditVisible(false);
+          setActiveTenant(null);
+          setTenantAdminAudits([]);
+          setAdminAuditCurrent(1);
+          setAdminAuditSize(ADMIN_AUDIT_PAGE_SIZE);
+          setAdminAuditTotal(0);
+        }}
+      >
+        <Table
+          rowKey="id"
+          columns={adminAuditColumns}
+          dataSource={tenantAdminAudits}
+          loading={adminAuditLoading}
+          pagination={{
+            current: adminAuditCurrent,
+            pageSize: adminAuditSize,
+            total: adminAuditTotal,
+            showSizeChanger: true,
+          }}
+          onChange={onAdminAuditTableChange}
+        />
       </Modal>
 
       <Modal
