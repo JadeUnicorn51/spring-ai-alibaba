@@ -163,4 +163,27 @@ Completed in this round:
 
 Next step:
 
-- [ ] Add platform tenant-governance capability to create/manage tenant admin accounts directly from `/admin/tenants`.
+- [x] Add platform tenant-governance capability to create/manage tenant admin accounts directly from `/admin/tenants`.
+
+## 10. 2026-04-11 Update (Step 2)
+
+Completed in this round:
+
+- [x] Backend platform API: added `POST /admin/v1/tenants/{tenantId}/admins` for creating tenant admin accounts.
+  - Validation includes: platform-level permission, tenant existence, tenant enabled status, required username/password.
+  - Files:
+    - `spring-ai-alibaba-admin-server-start/src/main/java/com/alibaba/cloud/ai/studio/admin/controller/TenantController.java`
+    - `spring-ai-alibaba-admin-server-runtime/src/main/java/com/alibaba/cloud/ai/studio/runtime/domain/tenant/TenantAdminCreateRequest.java`
+- [x] Frontend platform tenant page: added "Create Admin" action and modal in `/admin/tenants`.
+  - File: `frontend/packages/main/src/pages/Admin/Tenant/index.tsx`
+- [x] Frontend tenant service/types updated for tenant admin creation API.
+  - Files:
+    - `frontend/packages/main/src/services/tenant.ts`
+    - `frontend/packages/main/src/types/tenant.ts`
+- [x] Build verification passed:
+  - `mvn -pl spring-ai-alibaba-admin-server-start -am -DskipTests compile`
+  - `npm run build -w packages/main`
+
+Next step:
+
+- [ ] Add tenant-admin lifecycle operations on platform side (list tenant admins, disable/enable/reset password) to complete full governance loop.

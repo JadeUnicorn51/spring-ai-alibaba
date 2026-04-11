@@ -16,19 +16,25 @@
 
 package com.alibaba.cloud.ai.studio.admin.controller;
 
+import com.alibaba.cloud.ai.studio.core.base.service.AccountService;
 import com.alibaba.cloud.ai.studio.core.base.service.TenantService;
 import com.alibaba.cloud.ai.studio.runtime.domain.BaseQuery;
 import com.alibaba.cloud.ai.studio.runtime.domain.PagingList;
 import com.alibaba.cloud.ai.studio.runtime.domain.Result;
+import com.alibaba.cloud.ai.studio.runtime.domain.account.Account;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.Tenant;
+import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantAdminCreateRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantCreateRequest;
 import com.alibaba.cloud.ai.studio.runtime.domain.tenant.TenantQuotaDTO;
+import com.alibaba.cloud.ai.studio.runtime.enums.AccountType;
+import com.alibaba.cloud.ai.studio.runtime.enums.CommonStatus;
 import com.alibaba.cloud.ai.studio.runtime.enums.ErrorCode;
 import com.alibaba.cloud.ai.studio.runtime.exception.BizException;
 import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
 import com.alibaba.cloud.ai.studio.core.context.TenantContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -44,8 +50,11 @@ public class TenantController {
 
 	private final TenantService tenantService;
 
-	public TenantController(TenantService tenantService) {
+	private final AccountService accountService;
+
+	public TenantController(TenantService tenantService, AccountService accountService) {
 		this.tenantService = tenantService;
+		this.accountService = accountService;
 	}
 
 	/**
@@ -155,6 +164,49 @@ public class TenantController {
 
 		tenantService.disableTenant(tenantId);
 		return Result.success(getRequestId(), null);
+	}
+
+	/**
+	 * Creates a tenant administrator account under the specified tenant.
+	 * @param tenantId Tenant ID
+	 * @param request Tenant admin creation request
+	 * @return Created account ID
+	 */
+	@PostMapping("/{tenantId}/admins")
+	@Operation(summary = "Create tenant admin", description = "Creates a tenant administrator account for the tenant")
+	public Result<String> createTenantAdmin(@PathVariable("tenantId") String tenantId,
+			@RequestBody TenantAdminCreateRequest request) {
+		validatePlatformAdmin();
+
+		if (request == null) {
+			throw new BizException(ErrorCode.MISSING_PARAMS.toError("request"));
+		}
+		if (StringUtils.isBlank(request.getUsername())) {
+			throw new BizException(ErrorCode.INVALID_PARAMS.toError("username"));
+		}
+		if (StringUtils.isBlank(request.getPassword())) {
+			throw new BizException(ErrorCode.INVALID_PARAMS.toError("password"));
+		}
+
+		Tenant tenant = tenantService.getTenant(tenantId);
+		if (tenant == null) {
+			throw new BizException(ErrorCode.TENANT_NOT_FOUND.toError());
+		}
+		if (!CommonStatus.NORMAL.getStatus().equals(tenant.getStatus())) {
+			throw new BizException(ErrorCode.TENANT_DISABLED.toError());
+		}
+
+		Account account = new Account();
+		account.setUsername(request.getUsername());
+		account.setPassword(request.getPassword());
+		account.setNickname(request.getNickname());
+		account.setEmail(request.getEmail());
+		account.setMobile(request.getMobile());
+		account.setType(AccountType.TENANT_ADMIN);
+		account.setTenantId(tenantId);
+
+		String accountId = accountService.createAccount(account);
+		return Result.success(getRequestId(), accountId);
 	}
 
 	/**

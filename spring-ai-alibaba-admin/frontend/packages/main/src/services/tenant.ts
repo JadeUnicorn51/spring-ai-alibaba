@@ -2,6 +2,7 @@ import { request } from '@/request';
 import { IPagingList } from '@/types/account';
 import { IApiResponse } from '@/types/common';
 import type {
+  ICreateTenantAdminParams,
   ICreateTenantParams,
   IGetTenantListParams,
   ITenant,
@@ -71,4 +72,16 @@ export async function disableTenant(
     method: 'POST',
   });
   return response.data as IApiResponse<void>;
+}
+
+export async function createTenantAdmin(
+  tenantId: string,
+  params: ICreateTenantAdminParams,
+): Promise<IApiResponse<string>> {
+  const response = await request({
+    url: `/admin/v1/tenants/${tenantId}/admins`,
+    method: 'POST',
+    data: params,
+  });
+  return response.data as IApiResponse<string>;
 }

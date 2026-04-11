@@ -1,6 +1,7 @@
 import InnerLayout from '@/components/InnerLayout';
 import $i18n from '@/i18n';
 import {
+  createTenantAdmin,
   createTenant,
   disableTenant,
   enableTenant,
@@ -9,6 +10,7 @@ import {
   updateTenantQuota,
 } from '@/services/tenant';
 import type {
+  ICreateTenantAdminParams,
   ICreateTenantParams,
   ITenant,
   IUpdateTenantQuotaParams,
@@ -40,6 +42,8 @@ interface EditTenantFormValues {
 
 interface QuotaFormValues extends IUpdateTenantQuotaParams {}
 
+interface TenantAdminFormValues extends ICreateTenantAdminParams {}
+
 export default function TenantAdminPage() {
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<ITenant[]>([]);
@@ -52,12 +56,14 @@ export default function TenantAdminPage() {
   const [createVisible, setCreateVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [quotaVisible, setQuotaVisible] = useState(false);
+  const [adminVisible, setAdminVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTenant, setActiveTenant] = useState<ITenant | null>(null);
 
   const [createForm] = Form.useForm<CreateTenantFormValues>();
   const [editForm] = Form.useForm<EditTenantFormValues>();
   const [quotaForm] = Form.useForm<QuotaFormValues>();
+  const [adminForm] = Form.useForm<TenantAdminFormValues>();
 
   const isSuperAdmin = isSuperAdminAccountType(window.g_config.user?.type);
 
@@ -158,6 +164,26 @@ export default function TenantAdminPage() {
     }
   };
 
+  const onCreateTenantAdmin = async () => {
+    if (!activeTenant) return;
+    try {
+      const values = await adminForm.validateFields();
+      setSubmitting(true);
+      await createTenantAdmin(activeTenant.tenant_id, values);
+      message.success(
+        $i18n.get({
+          id: 'main.pages.Admin.Tenant.createAdminSuccess',
+          dm: '租户管理员创建成功',
+        }),
+      );
+      setAdminVisible(false);
+      setActiveTenant(null);
+      adminForm.resetFields();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const onToggleStatus = (tenant: ITenant) => {
     const targetStatus = tenant.status === 1 ? 0 : 1;
     Modal.confirm({
@@ -212,6 +238,18 @@ export default function TenantAdminPage() {
       max_api_calls_per_day: tenant.max_api_calls_per_day,
     });
     setQuotaVisible(true);
+  };
+
+  const openTenantAdminModal = (tenant: ITenant) => {
+    setActiveTenant(tenant);
+    adminForm.setFieldsValue({
+      username: '',
+      password: '',
+      nickname: `${tenant.name}-admin`,
+      email: undefined,
+      mobile: undefined,
+    });
+    setAdminVisible(true);
   };
 
   const columns: ColumnsType<ITenant> = [
@@ -290,6 +328,16 @@ export default function TenantAdminPage() {
             {$i18n.get({
               id: 'main.pages.Admin.Tenant.editQuota',
               dm: '调整配额',
+            })}
+          </Button>
+          <Button
+            size="small"
+            disabled={!isSuperAdmin}
+            onClick={() => openTenantAdminModal(record)}
+          >
+            {$i18n.get({
+              id: 'main.pages.Admin.Tenant.createAdmin',
+              dm: '创建管理员',
             })}
           </Button>
           <Button
@@ -474,6 +522,71 @@ export default function TenantAdminPage() {
             })}
           >
             <Input.TextArea maxLength={256} rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={$i18n.get({
+          id: 'main.pages.Admin.Tenant.createAdmin',
+          dm: '创建管理员',
+        })}
+        open={adminVisible}
+        onCancel={() => {
+          setAdminVisible(false);
+          setActiveTenant(null);
+        }}
+        onOk={onCreateTenantAdmin}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !isSuperAdmin }}
+      >
+        <Form layout="vertical" form={adminForm} requiredMark={false}>
+          <Form.Item
+            name="username"
+            label={$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminUsername',
+              dm: '用户名',
+            })}
+            rules={[{ required: true, message: '请输入用户名' }]}
+          >
+            <Input maxLength={64} />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label={$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminPassword',
+              dm: '密码',
+            })}
+            rules={[{ required: true, message: '请输入密码' }]}
+          >
+            <Input.Password maxLength={64} />
+          </Form.Item>
+          <Form.Item
+            name="nickname"
+            label={$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminNickname',
+              dm: '昵称',
+            })}
+          >
+            <Input maxLength={64} />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label={$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminEmail',
+              dm: '邮箱',
+            })}
+          >
+            <Input maxLength={128} />
+          </Form.Item>
+          <Form.Item
+            name="mobile"
+            label={$i18n.get({
+              id: 'main.pages.Admin.Tenant.adminMobile',
+              dm: '手机号',
+            })}
+          >
+            <Input maxLength={32} />
           </Form.Item>
         </Form>
       </Modal>

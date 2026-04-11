@@ -42,3 +42,11 @@ export interface IGetTenantListParams {
   size?: number;
   name?: string;
 }
+
+export interface ICreateTenantAdminParams {
+  username: string;
+  password: string;
+  nickname?: string;
+  email?: string;
+  mobile?: string;
+}
