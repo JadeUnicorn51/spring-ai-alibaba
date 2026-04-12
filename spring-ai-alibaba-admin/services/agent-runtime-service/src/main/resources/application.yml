@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: agent-runtime-service
+
+server:
+  port: 18083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -14,14 +14,17 @@ This TODO tracks only the new V2 architecture scope.
 
 ## 2.1 Foundation
 
-- [ ] Confirm final package naming and module naming conventions.
-- [ ] Create `services/` root and scaffold:
-  - [ ] `platform-service`
-  - [ ] `tenant-service`
-  - [ ] `agent-runtime-service`
-  - [ ] `shared-capabilities`
-- [ ] Add common BOM/dependency management for new services.
-- [ ] Add unified error model and response contract for new APIs.
+- [x] Confirm final package naming and module naming conventions.
+- [x] Create `services/` root and scaffold:
+  - [x] `platform-service`
+  - [x] `tenant-service`
+  - [x] `agent-runtime-service`
+  - [x] `shared-capabilities`
+- [x] Add common BOM/dependency management for new services.
+- [x] Add unified error model and response contract for new APIs.
+- Naming baseline:
+  - Maven module/artifact follows directory name: `platform-service` / `tenant-service` / `agent-runtime-service` / `shared-capabilities`.
+  - Java package root: `com.alibaba.cloud.ai.studio.multitenant.{platform|tenant|runtime|shared}`.
 
 ## 2.2 Identity and Security
 
@@ -123,4 +126,3 @@ This TODO tracks only the new V2 architecture scope.
 - [ ] A2A nodes can register/discover via Nacos 3.1+.
 - [ ] Tenant portal supports both PC and H5 from one codebase.
 - [ ] Admin portal can manage tenant/package/product/authorization end to end.
-

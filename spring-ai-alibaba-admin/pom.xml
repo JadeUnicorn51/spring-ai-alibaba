@@ -30,6 +30,7 @@
         <module>spring-ai-alibaba-admin-server-core</module>
         <module>spring-ai-alibaba-admin-server-runtime</module>
         <module>spring-ai-alibaba-admin-server-openapi</module>
+        <module>services</module>
     </modules>
 
     <scm>
