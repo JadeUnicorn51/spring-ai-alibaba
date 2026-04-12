@@ -33,6 +33,7 @@ import com.alibaba.cloud.ai.studio.runtime.domain.app.AgentConfig;
 import com.alibaba.cloud.ai.studio.runtime.domain.app.FileSearchOptions;
 import com.alibaba.cloud.ai.studio.runtime.domain.knowledgebase.DocumentChunk;
 import com.alibaba.cloud.ai.studio.runtime.utils.JsonUtils;
+import com.alibaba.cloud.ai.studio.runtime.enums.agent.AgentExecutionMode;
 import com.alibaba.cloud.ai.studio.core.base.service.McpServerService;
 import com.alibaba.cloud.ai.studio.core.base.service.PluginService;
 import com.alibaba.cloud.ai.studio.core.base.service.ToolExecutionService;
@@ -157,12 +158,13 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 		ChatClient.Builder chatClientBuilder = buildChatClient(context, chatOptions, toolCallbackProvider);
 
 		final Prompt prompt = new Prompt(messages, chatOptions);
+		final int maxIterations = getMaxToolIterations(config);
 		return chatClientBuilder.build()
 			.prompt(prompt)
 			.stream()
 			.chatResponse()
 			.concatMap(response -> processToolCallsRecursively(chatClientBuilder, response, prompt, toolCallingManager,
-					toolCallbackProvider, requestContext, chatOptions));
+					toolCallbackProvider, requestContext, chatOptions, 1, maxIterations));
 	}
 
 	/**
@@ -174,6 +176,11 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	@Override
 	public AgentResponse execute(AgentContext context, AgentRequest request) {
 		AgentConfig config = context.getConfig();
+
+		if (isReactAgentMode(config)) {
+			return executeInReactMode(context, request);
+		}
+
 		// build chat options
 		ToolCallingChatOptions chatOptions = buildChatOptions(config);
 
@@ -220,12 +227,56 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 		return convertResponse(response, toolCallbackProvider).block();
 	}
 
+	private AgentResponse executeInReactMode(AgentContext context, AgentRequest request) {
+		AgentConfig config = context.getConfig();
+		ToolCallingChatOptions chatOptions = buildChatOptions(config);
+		ToolCallingManager toolCallingManager = ToolCallingManager.builder().build();
+		CompositeToolCallbackProvider toolCallbackProvider = buildToolCallbackProvider(config, request.getExtraPrams());
+		List<Message> messages = buildMessages(context);
+		ChatClient.Builder chatClientBuilder = buildChatClient(context, chatOptions, toolCallbackProvider);
+
+		Prompt currentPrompt = new Prompt(messages, chatOptions);
+		ChatResponse currentResponse = chatClientBuilder.build().prompt(currentPrompt).options(chatOptions).call().chatResponse();
+		Assert.notNull(currentResponse, "response can not be null");
+
+		List<ToolCall> allToolCalls = new ArrayList<>();
+		int remainingIterations = getMaxToolIterations(config);
+		while (currentResponse.hasToolCalls() && remainingIterations > 0) {
+			remainingIterations--;
+			ToolExecutionResult toolExecutionResult = toolCallingManager.executeToolCalls(currentPrompt, currentResponse);
+
+			Generation generation = currentResponse.getResults().get(0);
+			allToolCalls.addAll(convertToolCall(generation.getOutput().getToolCalls(), toolCallbackProvider));
+			allToolCalls.addAll(convertToolResult(toolExecutionResult, toolCallbackProvider));
+
+			currentPrompt = new Prompt(toolExecutionResult.conversationHistory(), chatOptions);
+			currentResponse = chatClientBuilder.build().prompt(currentPrompt).call().chatResponse();
+			Assert.notNull(currentResponse, "chat response can not be null");
+		}
+
+		AgentResponse response = convertResponse(currentResponse, toolCallbackProvider).block();
+		Assert.notNull(response, "agent response can not be null");
+
+		if (!CollectionUtils.isEmpty(allToolCalls)) {
+			List<ToolCall> mergedToolCalls = new ArrayList<>(allToolCalls);
+			if (response.getMessage() != null && !CollectionUtils.isEmpty(response.getMessage().getToolCalls())) {
+				mergedToolCalls.addAll(response.getMessage().getToolCalls());
+			}
+			if (response.getMessage() == null) {
+				response.setMessage(ChatMessage.builder().role(MessageRole.ASSISTANT).content("").build());
+			}
+			response.getMessage().setToolCalls(mergedToolCalls);
+		}
+
+		return response;
+	}
+
 	/**
 	 * Builds chat options based on agent configuration
 	 * @param config Agent configuration
 	 * @return OpenAiChatOptions instance
 	 */
-	private OpenAiChatOptions buildChatOptions(AgentConfig config) {
+	protected OpenAiChatOptions buildChatOptions(AgentConfig config) {
 		OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder()
 			.model(config.getModel())
 			.streamUsage(true)
@@ -246,7 +297,7 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 * @param config Agent configuration
 	 * @return ChatModel instance
 	 */
-	private ChatModel buildChatModel(AgentConfig config) {
+	protected ChatModel buildChatModel(AgentConfig config) {
 		return modelFactory.getChatModel(config.getModelProvider());
 	}
 
@@ -257,7 +308,7 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 * @param toolCallbackProvider Tool callback provider
 	 * @return ChatClient.Builder instance
 	 */
-	private ChatClient.Builder buildChatClient(AgentContext context, ToolCallingChatOptions chatOptions,
+	protected ChatClient.Builder buildChatClient(AgentContext context, ToolCallingChatOptions chatOptions,
 			ToolCallbackProvider toolCallbackProvider) {
 		AgentConfig config = context.getConfig();
 		AgentRequest request = context.getRequest();
@@ -526,7 +577,7 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 * @param toolCallbackProvider tool callback provider
 	 * @return List of tool calls
 	 */
-	private List<ToolCall> convertToolCall(List<AssistantMessage.ToolCall> toolCalls,
+	protected List<ToolCall> convertToolCall(List<AssistantMessage.ToolCall> toolCalls,
 			CompositeToolCallbackProvider toolCallbackProvider) {
 		if (CollectionUtils.isEmpty(toolCalls)) {
 			return new ArrayList<>(0);
@@ -596,35 +647,53 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 * @param toolCallbackProvider tool callback provider
 	 * @return List of tool calls
 	 */
-	private List<ToolCall> convertToolResult(ToolExecutionResult toolExecutionResult,
+	protected List<ToolCall> convertToolResult(ToolExecutionResult toolExecutionResult,
 			CompositeToolCallbackProvider toolCallbackProvider) {
-		List<ToolCall> toolResults = new ArrayList<>();
 		List<Message> conversationHistory = toolExecutionResult.conversationHistory();
-
-		Map<String, AgentToolCallback> toolCallbackMap = getAgentToolCallback(toolCallbackProvider);
-
-		if (conversationHistory
-			.get(conversationHistory.size() - 1) instanceof ToolResponseMessage toolResponseMessage) {
-			toolResponseMessage.getResponses().forEach(response -> {
-				// Map tool type to tool result type
-				AgentToolCallback toolCallback = toolCallbackMap.get(response.name());
-				ToolCallType type = toolCallback == null ? ToolCallType.TOOL_RESULT : toolCallback.getToolCallType();
-				ToolCallType resultType;
-				switch (type) {
-					case MCP_TOOL_CALL -> resultType = ToolCallType.MCP_TOOL_RESULT;
-					case COMPONENT_TOOL_CALL -> resultType = ToolCallType.COMPONENT_TOOL_RESULT;
-					default -> resultType = ToolCallType.TOOL_RESULT;
-				}
-
-				ToolCall toolCallOutput = ToolCall.builder()
-					.id(response.id())
-					.type(resultType)
-					.function(ToolCall.Function.builder().name(response.name()).output(response.responseData()).build())
-					.build();
-				toolResults.add(toolCallOutput);
-			});
+		if (CollectionUtils.isEmpty(conversationHistory)) {
+			return new ArrayList<>();
 		}
 
+		Message lastMessage = conversationHistory.get(conversationHistory.size() - 1);
+		if (!(lastMessage instanceof ToolResponseMessage toolResponseMessage)) {
+			return new ArrayList<>();
+		}
+
+		return convertToolResult(toolResponseMessage, toolCallbackProvider);
+	}
+
+	/**
+	 * Converts tool response message to tool call outputs.
+	 * @param toolResponseMessage Tool response message
+	 * @param toolCallbackProvider tool callback provider
+	 * @return List of tool call outputs
+	 */
+	protected List<ToolCall> convertToolResult(ToolResponseMessage toolResponseMessage,
+			CompositeToolCallbackProvider toolCallbackProvider) {
+		List<ToolCall> toolResults = new ArrayList<>();
+		if (toolResponseMessage == null || CollectionUtils.isEmpty(toolResponseMessage.getResponses())) {
+			return toolResults;
+		}
+
+		Map<String, AgentToolCallback> toolCallbackMap = getAgentToolCallback(toolCallbackProvider);
+		toolResponseMessage.getResponses().forEach(response -> {
+			// Map tool type to tool result type
+			AgentToolCallback toolCallback = toolCallbackMap.get(response.name());
+			ToolCallType type = toolCallback == null ? ToolCallType.TOOL_RESULT : toolCallback.getToolCallType();
+			ToolCallType resultType;
+			switch (type) {
+				case MCP_TOOL_CALL -> resultType = ToolCallType.MCP_TOOL_RESULT;
+				case COMPONENT_TOOL_CALL -> resultType = ToolCallType.COMPONENT_TOOL_RESULT;
+				default -> resultType = ToolCallType.TOOL_RESULT;
+			}
+
+			ToolCall toolCallOutput = ToolCall.builder()
+				.id(response.id())
+				.type(resultType)
+				.function(ToolCall.Function.builder().name(response.name()).output(response.responseData()).build())
+				.build();
+			toolResults.add(toolCallOutput);
+		});
 		return toolResults;
 	}
 
@@ -653,7 +722,7 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 * @param extraParams Extra parameters
 	 * @return CompositeToolCallbackProvider instance
 	 */
-	private CompositeToolCallbackProvider buildToolCallbackProvider(AgentConfig config,
+	protected CompositeToolCallbackProvider buildToolCallbackProvider(AgentConfig config,
 			Map<String, Object> extraParams) {
 		return new CompositeToolCallbackProvider(config, pluginService, toolExecutionService, mcpServerService,
 				appComponentManager, extraParams);
@@ -662,9 +731,13 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	private Flux<AgentResponse> processToolCallsRecursively(ChatClient.Builder chatClientBuilder, ChatResponse response,
 			Prompt originalPrompt, ToolCallingManager toolCallingManager,
 			CompositeToolCallbackProvider toolCallbackProvider, RequestContext requestContext,
-			ToolCallingChatOptions chatOptions) {
+			ToolCallingChatOptions chatOptions, int currentIteration, int maxIterations) {
 
 		if (!response.hasToolCalls()) {
+			return convertResponse(response, toolCallbackProvider).flux();
+		}
+
+		if (currentIteration > maxIterations) {
 			return convertResponse(response, toolCallbackProvider).flux();
 		}
 
@@ -701,8 +774,24 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 								// Key change: Recursively process the response
 								.concatMap(newResponse -> processToolCallsRecursively(chatClientBuilder, newResponse,
 										newPrompt, toolCallingManager, toolCallbackProvider, requestContext,
-										chatOptions)));
+										chatOptions, currentIteration + 1, maxIterations)));
 				}));
+	}
+
+	private boolean isReactAgentMode(AgentConfig config) {
+		return config != null && config.getExecutionMode() == AgentExecutionMode.REACT_AGENT;
+	}
+
+	protected int getMaxToolIterations(AgentConfig config) {
+		if (!isReactAgentMode(config)) {
+			return Integer.MAX_VALUE;
+		}
+
+		Integer maxIterations = config.getMaxIterations();
+		if (maxIterations == null || maxIterations <= 0) {
+			return 6;
+		}
+		return maxIterations;
 	}
 
 	/**
@@ -710,7 +799,7 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 * @param toolCallbackProvider tool callback provider
 	 * @return agent tool callback
 	 */
-	private Map<String, AgentToolCallback> getAgentToolCallback(ToolCallbackProvider toolCallbackProvider) {
+	protected Map<String, AgentToolCallback> getAgentToolCallback(ToolCallbackProvider toolCallbackProvider) {
 		Map<String, AgentToolCallback> agentToolCallbackMap = new HashMap<>();
 		ToolCallback[] toolCallbacks = toolCallbackProvider.getToolCallbacks();
 		if (ArrayUtils.isEmpty(toolCallbacks)) {

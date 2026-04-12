@@ -16,6 +16,7 @@ import HistoryPanelComp from '../HistoryPanel/HistoryPanelComp';
 import KnowledgeBaseSelectorComp from '../KnowledgeSelectorComp';
 import MCPSelectorComp from '../MCPSelectorComp';
 import PluginSelectorComp from '../PluginSelectorComp';
+import SkillSelectorComp from '../SkillSelectorComp';
 import WorkFlowSelectorComp from '../WorkFlowSelectorComp';
 import styles from './index.module.less';
 import ModelConfig from './modelConfig';
@@ -173,6 +174,7 @@ export default function AssistantConfig() {
                           dm: '技能',
                         })}
                       </div>
+                      <SkillSelectorComp />
                       <MCPSelectorComp />
                       <PluginSelectorComp />
                       <AgentSelectorComp />

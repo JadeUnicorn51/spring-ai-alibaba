@@ -35,11 +35,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 
+import java.io.IOException;
 import java.util.Objects;
 
 import static com.alibaba.cloud.ai.studio.core.utils.LogUtils.FAIL;
@@ -173,6 +175,9 @@ public class AppChatController {
 			emitter.send(json, MediaType.TEXT_EVENT_STREAM);
 		}
 		catch (Exception e) {
+			if (isClientDisconnected(e)) {
+				throw new ClientDisconnectedException("stream connection closed by client", e);
+			}
 			LogUtils.monitor(context, "AgentChatController", "endStreamCallError", context.getStartTime(), FAIL,
 					request, e.getMessage(), e);
 		}
@@ -188,6 +193,11 @@ public class AppChatController {
 	 * Logs the error and returns a formatted error response.
 	 */
 	private Mono<AgentResponse> handleError(RequestContext context, AgentRequest request, Throwable err, String traceId) {
+		if (isClientDisconnected(err)) {
+			LogUtils.warn("AgentChatController stream closed by client", context == null ? null : context.getRequestId());
+			return Mono.empty();
+		}
+
 		LogUtils.monitor(context, "AgentChatController", "endStreamCallError", context.getStartTime(), FAIL, request,
 				err.getMessage(), err);
 
@@ -208,6 +218,37 @@ public class AppChatController {
 	private void handleComplete(RequestContext context, SignalType signalType, SseEmitter emitter) {
 		emitter.complete();
 		LogUtils.monitor(context, "AgentChatController", "endStreamCall", context.getStartTime(), SUCCESS, null, null);
+	}
+
+	private boolean isClientDisconnected(Throwable throwable) {
+		Throwable cursor = throwable;
+		while (cursor != null) {
+			if (cursor instanceof ClientDisconnectedException) {
+				return true;
+			}
+			if (cursor instanceof AsyncRequestNotUsableException) {
+				return true;
+			}
+			if (cursor instanceof IOException && cursor.getMessage() != null
+					&& (cursor.getMessage().contains("Broken pipe")
+							|| cursor.getMessage().contains("Connection reset by peer")
+							|| cursor.getMessage().contains("An established connection was aborted"))) {
+				return true;
+			}
+			if ("org.apache.catalina.connector.ClientAbortException".equals(cursor.getClass().getName())) {
+				return true;
+			}
+			cursor = cursor.getCause();
+		}
+		return false;
+	}
+
+	private static class ClientDisconnectedException extends RuntimeException {
+
+		ClientDisconnectedException(String message, Throwable cause) {
+			super(message, cause);
+		}
+
 	}
 
 }

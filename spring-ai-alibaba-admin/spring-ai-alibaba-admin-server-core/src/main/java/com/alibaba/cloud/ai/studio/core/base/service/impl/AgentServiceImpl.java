@@ -31,6 +31,7 @@ import com.alibaba.cloud.ai.studio.core.base.service.AppService;
 import com.alibaba.cloud.ai.studio.core.agent.AgentExecutor;
 import com.alibaba.cloud.ai.studio.core.config.CommonConfig;
 import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
+import com.alibaba.cloud.ai.studio.core.agent.AgentConfigResolver;
 import com.alibaba.cloud.ai.studio.core.agent.AgentContext;
 import com.alibaba.cloud.ai.studio.core.utils.ErrorHandlerUtils;
 import com.alibaba.cloud.ai.studio.core.utils.common.BeanCopierUtils;
@@ -70,15 +71,25 @@ public class AgentServiceImpl implements AgentService {
 	/** Executor for basic agent type */
 	private final AgentExecutor basicAgentExecutor;
 
+	/** Executor for react agent mode */
+	private final AgentExecutor reactAgentExecutor;
+
 	/** Executor for workflow agent type */
 	private final AgentExecutor workflowAgentExecutor;
 
+	/** Resolver for runtime agent configuration */
+	private final AgentConfigResolver agentConfigResolver;
+
 	public AgentServiceImpl(AppService appService, CommonConfig commonConfig,
 			@Qualifier("basicAgentExecutor") AgentExecutor basicAgentExecutor,
+			@Qualifier("reactAgentExecutor") AgentExecutor reactAgentExecutor,
+			AgentConfigResolver agentConfigResolver,
 			@Qualifier("workflowAgentExecutor") AgentExecutor workflowAgentExecutor) {
 		this.appService = appService;
 		this.commonConfig = commonConfig;
 		this.workflowAgentExecutor = workflowAgentExecutor;
+		this.reactAgentExecutor = reactAgentExecutor;
+		this.agentConfigResolver = agentConfigResolver;
 		this.basicAgentExecutor = basicAgentExecutor;
 	}
 
@@ -176,7 +187,8 @@ public class AgentServiceImpl implements AgentService {
 			}
 
 			context.setAppType(app.getType());
-			context.setConfig(JsonUtils.fromJson(configStr, AgentConfig.class));
+			AgentConfig rawConfig = JsonUtils.fromJson(configStr, AgentConfig.class);
+			context.setConfig(rawConfig);
 
 			boolean memoryEnabled = memoryEnabled(context, request);
 			context.setMemoryEnabled(memoryEnabled);
@@ -202,6 +214,11 @@ public class AgentServiceImpl implements AgentService {
 	 */
 	private Flux<AgentResponse> streamExecute(AgentContext context, AgentRequest request) {
 		if (context.getAppType() == AppType.BASIC) {
+			if (agentConfigResolver.isReactAgentMode(context.getConfig())) {
+				context.setConfig(agentConfigResolver.resolveForReact(context.getConfig()));
+				return reactAgentExecutor.streamExecute(context, request);
+			}
+			context.setConfig(agentConfigResolver.resolve(context.getConfig()));
 			return basicAgentExecutor.streamExecute(context, request);
 		}
 		else {
@@ -214,6 +231,11 @@ public class AgentServiceImpl implements AgentService {
 	 */
 	private AgentResponse execute(AgentContext context, AgentRequest request) {
 		if (context.getAppType() == AppType.BASIC) {
+			if (agentConfigResolver.isReactAgentMode(context.getConfig())) {
+				context.setConfig(agentConfigResolver.resolveForReact(context.getConfig()));
+				return reactAgentExecutor.execute(context, request);
+			}
+			context.setConfig(agentConfigResolver.resolve(context.getConfig()));
 			return basicAgentExecutor.execute(context, request);
 		}
 		else if (context.getAppType() == AppType.WORKFLOW) {

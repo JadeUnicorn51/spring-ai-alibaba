@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.studio.runtime.domain.app;
 
+import com.alibaba.cloud.ai.studio.runtime.enums.agent.AgentExecutionMode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
@@ -50,6 +51,14 @@ public class AgentConfig implements AppConfig, Serializable {
 	/** Model parameters for generation */
 	private Parameter parameter;
 
+	/** Execution mode for agent runtime. */
+	@JsonProperty("execution_mode")
+	private AgentExecutionMode executionMode;
+
+	/** Maximum tool-call iterations in react agent mode. */
+	@JsonProperty("max_iterations")
+	private Integer maxIterations;
+
 	/** List of tools available to the agent */
 	private List<Tool> tools;
 
@@ -75,6 +84,9 @@ public class AgentConfig implements AppConfig, Serializable {
 
 	/** Initial context and suggested questions */
 	private Prologue prologue;
+
+	/** Skill groups that compose atomic tools/components into reusable capability units. */
+	private List<Skill> skills;
 
 	/** Configuration for model generation parameters */
 	@Data
@@ -162,6 +174,43 @@ public class AgentConfig implements AppConfig, Serializable {
 		/** List of suggested questions for users */
 		@JsonProperty("suggested_questions")
 		private List<String> suggestedQuestions;
+
+	}
+
+	/** Configuration for skill abstraction. */
+	@Data
+	public static class Skill implements Serializable {
+
+		/** Skill id. */
+		private String id;
+
+		/** Skill display name. */
+		private String name;
+
+		/** Skill description. */
+		private String description;
+
+		/** Optional instruction patch injected into system prompt when enabled. */
+		private String instruction;
+
+		/** Whether this skill is enabled. */
+		private Boolean enabled;
+
+		/** Plugin tool ids bound to this skill. */
+		@JsonProperty("tool_ids")
+		private List<String> toolIds;
+
+		/** MCP server ids bound to this skill. */
+		@JsonProperty("mcp_server_ids")
+		private List<String> mcpServerIds;
+
+		/** Agent component ids bound to this skill. */
+		@JsonProperty("agent_component_ids")
+		private List<String> agentComponentIds;
+
+		/** Workflow component ids bound to this skill. */
+		@JsonProperty("workflow_component_ids")
+		private List<String> workflowComponentIds;
 
 	}
 

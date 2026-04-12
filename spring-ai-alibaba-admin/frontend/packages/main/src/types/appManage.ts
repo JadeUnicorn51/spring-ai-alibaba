@@ -119,11 +119,28 @@ export type UserPromptParams = {
   type: 'string';
 };
 
+export type AgentExecutionMode = 'basic_tool_loop' | 'react_agent';
+
+export interface IAgentSkill {
+  id?: string;
+  name: string;
+  description?: string;
+  instruction?: string;
+  enabled?: boolean;
+  tool_ids?: string[];
+  tools?: PluginTool[];
+  mcp_server_ids?: string[];
+  agent_component_ids?: string[];
+  workflow_component_ids?: string[];
+}
+
 /** Assistant configuration details */
 export interface IAssistantConfig {
   model_provider?: string; // Model provider
   model: string; // Model name
   instructions?: string; // System prompt
+  execution_mode?: AgentExecutionMode; // Agent runtime execution mode
+  max_iterations?: number; // Maximum number of tool-call iterations in react mode
   memory?: {
     // Context configuration
     dialog_round: number; // Conversation rounds
@@ -142,6 +159,7 @@ export interface IAssistantConfig {
   workflow_components?: string[]; // Workflow components
   modality_type?: ModalityType; // Interaction modality type
   prompt_variables?: UserPromptParams[]; // User defined prompt parameters
+  skills?: IAgentSkill[]; // Skills (tool bundles)
   prologue?: {
     prologue_text: string; // Opening remarks
     suggested_questions?: string[]; // Suggested questions

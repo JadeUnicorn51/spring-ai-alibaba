@@ -17,6 +17,7 @@ import { getPluginToolsByIds } from '@/services/plugin';
 import { convertDifyToSpringAI } from '@/services/difyConverter';
 import { IAppComponentListItem } from '@/types/appComponent';
 import {
+  IAgentSkill,
   IAppStatus,
   IAssistantAppDetail,
   IAssistantAppDetailWithInfos,
@@ -103,6 +104,41 @@ const normalizeFileSearchConfig = (
   };
 };
 
+const getSkillToolIds = (skill: IAgentSkill): string[] => {
+  if (skill.tool_ids?.length) {
+    return skill.tool_ids.filter((id): id is string => !!id);
+  }
+
+  if (!skill.tools?.length) {
+    return [];
+  }
+
+  return skill.tools
+    .map((tool) => tool.tool_id)
+    .filter((id): id is string => !!id);
+};
+
+const normalizeSkillsWithToolInfos = async (
+  skills?: IAgentSkill[],
+): Promise<IAgentSkill[]> => {
+  if (!skills?.length) {
+    return [];
+  }
+
+  const normalizedSkills: IAgentSkill[] = [];
+  for (const skill of skills) {
+    const tool_ids = getSkillToolIds(skill);
+    const tools = await queryToolsByCode(tool_ids.map((id) => ({ id })));
+    normalizedSkills.push({
+      ...skill,
+      tool_ids,
+      tools,
+    });
+  }
+
+  return normalizedSkills;
+};
+
 export const transformAppData = (
   cacheAppDetailWithInfo: IAssistantConfigWithInfos,
 ): IAssistantConfig => {
@@ -115,6 +151,12 @@ export const transformAppData = (
     ...extraConfig
   } = cacheAppDetailWithInfo;
   const normalizedFileSearch = normalizeFileSearchConfig(file_search);
+  const normalizedSkills = (extraConfig.skills || []).map((skill) => ({
+    ...skill,
+    tool_ids: getSkillToolIds(skill),
+    tools: undefined,
+  }));
+
   const newAppConfig = {
     ...extraConfig,
     model: extraConfig.model?.model_id,
@@ -130,6 +172,7 @@ export const transformAppData = (
         [],
       kbs: undefined,
     },
+    skills: normalizedSkills,
   };
   return newAppConfig as IAssistantConfig;
 };
@@ -228,6 +271,9 @@ export default function AssistantAppEdit() {
     const normalizedFileSearch = normalizeFileSearchConfig(
       appDetail.config.file_search,
     );
+    const normalizedSkills = await normalizeSkillsWithToolInfos(
+      appDetail.config.skills,
+    );
     const detailWithInfos: IAssistantAppDetailWithInfos = {
       ...appDetail,
       config: {
@@ -241,6 +287,7 @@ export default function AssistantAppEdit() {
           ...normalizedFileSearch,
           kbs: knowledgeBaseList,
         },
+        skills: normalizedSkills,
       },
     };
     cacheAppDetailWithInfo.current = detailWithInfos;

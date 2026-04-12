@@ -1,50 +1,4 @@
-version: '3.8'
 services:
-  # =========================
-  # Middleware Services
-  # =========================
-  mysql:
-    image: mysql:8.0.35
-    container_name: spring-ai-admin-mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      TZ: ${TZ}
-      LANG: C.UTF-8
-    volumes:
-      - ${DATA_HOME}/mysql/data:/var/lib/mysql
-      - ${DATA_HOME}/mysql/log:/var/log
-      - ../../docker/middleware/conf/mysql:/etc/mysql/conf.d
-      - ../../docker/middleware/init/mysql:/docker-entrypoint-initdb.d/
-    #ports:
-      #- "3308:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    networks:
-      - spring-ai-admin-network
-  redis:
-    image: redis:7.2.5
-    container_name: spring-ai-admin-redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - ${DATA_HOME}/redis/data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - spring-ai-admin-network
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.1.2
     container_name: spring-ai-admin-elasticsearch
@@ -53,12 +7,12 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - xpack.security.enrollment.enabled=false
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
       - cluster.name=spring-ai-admin-es-cluster
       - node.name=es-node-1
       - bootstrap.memory_lock=true
       - http.cors.enabled=true
-      - http.cors.allow-origin="*"
+      - http.cors.allow-origin=*
       - action.destructive_requires_name=false
     ulimits:
       memlock:
@@ -68,18 +22,19 @@ services:
         soft: 65536
         hard: 65536
     ports:
-      - "9200:9200"
-      - "9300:9300"
+      - "${ES_HTTP_PORT:-9200}:9200"
+      - "${ES_TRANSPORT_PORT:-9300}:9300"
     volumes:
       - ${DATA_HOME}/elasticsearch/data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
     networks:
       - spring-ai-admin-network
+
   kibana:
     image: docker.elastic.co/kibana/kibana:9.1.2
     container_name: spring-ai-admin-kibana
@@ -88,12 +43,13 @@ services:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - xpack.security.enabled=false
     ports:
-      - "5601:5601"
+      - "${KIBANA_PORT:-5601}:5601"
     depends_on:
       elasticsearch:
         condition: service_healthy
     networks:
       - spring-ai-admin-network
+
   elasticsearch-init:
     image: curlimages/curl:latest
     container_name: spring-ai-admin-elasticsearch-init
@@ -104,9 +60,10 @@ services:
     volumes:
       - ../../docker/middleware/init/elasticsearch:/scripts
     working_dir: /scripts
-    command: ["sh", "init-indices.sh"]
+    command: [ "sh", "init-indices.sh" ]
     networks:
       - spring-ai-admin-network
+
   loongcollector:
     image: sls-opensource-registry.cn-shanghai.cr.aliyuncs.com/loongcollector-community-edition/loongcollector:3.1.4
     container_name: spring-ai-admin-loongcollector
@@ -117,16 +74,17 @@ services:
     volumes:
       - ../../docker/middleware/conf/loongcollector:/usr/local/loongcollector/conf/continuous_pipeline_config/local
     ports:
-      - "4318:4318"
+      - "${OTLP_PORT:-4318}:4318"
     networks:
       - spring-ai-admin-network
+
   nacos:
     image: nacos/nacos-server:latest
     container_name: spring-ai-admin-nacos
     restart: always
     ports:
-      - "8848:8848"
-      - "9848:9848"
+      - "${NACOS_HTTP_PORT:-8848}:8848"
+      - "${NACOS_GRPC_PORT:-9848}:9848"
     environment:
       - MODE=standalone
       - NACOS_AUTH_TOKEN=dG9rZW5hbHNka2ZqbGFza2RqZmxhc2tkamZsYXNrZGpmb3dpZWpmbztzZGxm
@@ -137,6 +95,7 @@ services:
       - ${DATA_HOME}/nacos/data:/home/nacos/data
     networks:
       - spring-ai-admin-network
+
   rmq-namesrv:
     image: apache/rocketmq:5.3.2
     container_name: spring-ai-admin-rmq-namesrv
@@ -145,16 +104,17 @@ services:
       - NAMESRV_ADDR=rmq-namesrv:9876
       - HEAP_OPTS=-Xms128M -Xmx256M -Xmn128M
     ports:
-      - "9876:9876"
+      - "${ROCKETMQ_NAMESRV_PORT:-9876}:9876"
     networks:
       - spring-ai-admin-network
     command: sh mqnamesrv
     healthcheck:
-      test: ["CMD", "sh", "-c", "ps aux | grep mqnamesrv | grep -v grep || exit 1"]
+      test: [ "CMD", "sh", "-c", "ps aux | grep mqnamesrv | grep -v grep || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+
   rmq-broker:
     image: apache/rocketmq:5.3.2
     container_name: spring-ai-admin-rmq-broker
@@ -165,9 +125,9 @@ services:
     volumes:
       - ${DATA_HOME}/rocketmq/store:/home/rocketmq/store
     ports:
-      - "10909:10909"
-      - "10911:10911"
-      - "10912:10912"
+      - "${ROCKETMQ_BROKER_PORT_10909:-10909}:10909"
+      - "${ROCKETMQ_BROKER_PORT_10911:-10911}:10911"
+      - "${ROCKETMQ_BROKER_PORT_10912:-10912}:10912"
     depends_on:
       rmq-namesrv:
         condition: service_healthy
@@ -175,11 +135,12 @@ services:
       - spring-ai-admin-network
     command: sh mqbroker
     healthcheck:
-      test: ["CMD", "sh", "-c", "ps aux | grep mqbroker | grep -v grep || exit 1"]
+      test: [ "CMD", "sh", "-c", "ps aux | grep mqbroker | grep -v grep || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+
   rmq-proxy:
     image: apache/rocketmq:5.3.2
     container_name: spring-ai-admin-rmq-proxy
@@ -197,9 +158,10 @@ services:
       rmq-namesrv:
         condition: service_healthy
     ports:
-      - "18080:18080"
-      - "18081:18081"
+      - "${ROCKETMQ_PROXY_PORT:-18080}:18080"
+      - "${ROCKETMQ_PROXY_ADMIN_PORT:-18081}:18081"
     command: sh mqproxy -pc /home/rocketmq/conf/rmq-proxy.json
+
   rmq-init-topic:
     image: apache/rocketmq:5.3.2
     container_name: spring-ai-admin-rmq-init-topic
@@ -213,7 +175,6 @@ services:
       - spring-ai-admin-network
     entrypoint: >
       sh -c "
-
         echo 'Waiting for RocketMQ to be ready...' &&
         sleep 60 &&
         until sh mqadmin clusterList -n rmq-namesrv:9876; do
@@ -225,81 +186,73 @@ services:
         sh mqadmin updateSubGroup -n rmq-namesrv:9876 -g group_saa_studio_document_index -c DefaultCluster &&
         echo 'Verifying topic creation...' &&
         sh mqadmin topicList -n rmq-namesrv:9876 &&
-        echo 'Topic creation completed'"
-  # =========================
-  # Application Services
-  # =========================
+        echo 'Topic creation completed'
+      "
+
   backend:
     image: ${BACKEND_IMAGE}:${IMAGE_TAG}
     container_name: spring-ai-admin-backend
     restart: always
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-28080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - TZ=${TZ}
-      # MySQL配置
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      # Redis配置
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - SPRING_REDIS_DATABASE=0
-      # Elasticsearch配置
-      - SPRING_ELASTICSEARCH_URIS=http://elasticsearch:9200
-      - SPRING_ELASTICSEARCH_URL=http://elasticsearch:9200
-      # Nacos配置
-      - NACOS_SERVER_ADDR=nacos:8848
-      # RocketMQ配置
-      - ROCKETMQ_ENDPOINTS=rmq-proxy:18080
-      - ROCKETMQ_NAME_SERVER=rmq-namesrv:9876
-      - ROCKETMQ_DOCUMENT_INDEX_TOPIC=topic_saa_studio_document_index
-      - ROCKETMQ_DOCUMENT_INDEX_GROUP=group_saa_studio_document_index
-      # LoongCollector (OTLP) 配置
-      - MANAGEMENT_OTLP_TRACING_EXPORT_ENDPOINT=http://loongcollector:4318/v1/traces
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: ${TZ}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-host.docker.internal}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      SPRING_REDIS_PORT: ${REDIS_PORT:-6379}
+      SPRING_REDIS_DATABASE: ${REDIS_DATABASE:-0}
+      SPRING_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_ELASTICSEARCH_URL: http://elasticsearch:9200
+      NACOS_SERVER_ADDR: nacos:8848
+      ROCKETMQ_ENDPOINTS: rmq-proxy:18080
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_DOCUMENT_INDEX_TOPIC: topic_saa_studio_document_index
+      ROCKETMQ_DOCUMENT_INDEX_GROUP: group_saa_studio_document_index
+      MANAGEMENT_OTLP_TRACING_EXPORT_ENDPOINT: http://loongcollector:4318/v1/traces
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       elasticsearch:
         condition: service_healthy
       rmq-init-topic:
         condition: service_completed_successfully
+      nacos:
+        condition: service_started
+      loongcollector:
+        condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 90s
     networks:
       - spring-ai-admin-network
+
   frontend:
     image: ${FRONTEND_IMAGE}:${IMAGE_TAG}
     container_name: spring-ai-admin-frontend
     restart: always
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 30s
     networks:
       - spring-ai-admin-network
+
 networks:
   spring-ai-admin-network:
     name: spring-ai-admin-network
     driver: bridge
-volumes:
-  mysql-data:
-    driver: local
-  redis-data:
-    driver: local
-  elasticsearch-data:
-    driver: local
