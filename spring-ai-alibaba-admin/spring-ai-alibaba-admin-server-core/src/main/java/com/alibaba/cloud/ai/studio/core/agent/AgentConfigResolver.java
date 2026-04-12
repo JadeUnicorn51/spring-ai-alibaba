@@ -75,11 +75,10 @@ public class AgentConfigResolver {
 			if (maxIterations == null || maxIterations <= 0) {
 				config.setMaxIterations(REACT_DEFAULT_MAX_ITERATIONS);
 			}
+			fillSkillsFromBindings(config);
 		}
-
-		fillSkillsFromBindings(config);
-		if (executionMode != AgentExecutionMode.REACT_AGENT) {
-			mergeSkills(config);
+		else {
+			clearSkillsForBasicMode(config);
 		}
 		return config;
 	}
@@ -134,6 +133,11 @@ public class AgentConfigResolver {
 		skill.setAgentComponentIds(source.getAgentComponentIds());
 		skill.setWorkflowComponentIds(source.getWorkflowComponentIds());
 		return skill;
+	}
+
+	private void clearSkillsForBasicMode(AgentConfig config) {
+		config.setSkillIds(new ArrayList<>());
+		config.setSkills(new ArrayList<>());
 	}
 
 	private void mergeSkills(AgentConfig config) {

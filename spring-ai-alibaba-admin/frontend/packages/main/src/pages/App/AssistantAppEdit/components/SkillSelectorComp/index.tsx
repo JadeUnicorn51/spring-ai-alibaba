@@ -109,12 +109,26 @@ export default function SkillSelectorComp() {
   );
 
   const onChangeExecutionMode = (mode: AgentExecutionMode) => {
-    onAppConfigChange({
+    const nextPayload: Partial<{
+      execution_mode: AgentExecutionMode;
+      max_iterations: number | undefined;
+      skill_ids: string[];
+      skills: IAgentSkill[];
+    }> = {
       execution_mode: mode,
       max_iterations:
         mode === 'react_agent'
           ? config?.max_iterations || DEFAULT_MAX_ITERATIONS
           : undefined,
+    };
+
+    if (mode !== 'react_agent') {
+      nextPayload.skill_ids = [];
+      nextPayload.skills = [];
+    }
+
+    onAppConfigChange({
+      ...nextPayload,
     });
   };
 

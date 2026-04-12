@@ -145,17 +145,24 @@ public class KnowledgeBaseRetrievalAdvisor implements BaseAdvisor {
 		// 3.2. Augment user prompt with document context.
 		SystemMessage templatedSystemMessage = chatClientRequest.prompt().getSystemMessage();
 
-		PromptTemplate promptTemplate = new SystemPromptTemplate(templatedSystemMessage.getText());
+		Message systemMessage;
 		try {
-			PromptAssert.templateHasRequiredPlaceholders(promptTemplate, RagConstants.DOCUMENTS_PLACEHOLDER);
+			PromptTemplate promptTemplate = new SystemPromptTemplate(templatedSystemMessage.getText());
+			try {
+				PromptAssert.templateHasRequiredPlaceholders(promptTemplate, RagConstants.DOCUMENTS_PLACEHOLDER);
+			}
+			catch (Exception e) {
+//				throw new BizException(
+//						ErrorCode.INVALID_PARAMS.toError("documents", "{documents} placeholder is missing in instructions"),
+//						e);
+			}
+			systemMessage = promptTemplate.createMessage(promptParameters);
 		}
 		catch (Exception e) {
-//			throw new BizException(
-//					ErrorCode.INVALID_PARAMS.toError("documents", "{documents} placeholder is missing in instructions"),
-//					e);
+			LogUtils.warn("invalid system prompt template, fallback to plain replacement",
+					e == null ? null : e.getMessage());
+			systemMessage = new SystemMessage(renderSystemPromptSafely(templatedSystemMessage.getText(), promptParameters));
 		}
-
-		Message systemMessage = promptTemplate.createMessage(promptParameters);
 		chatClientRequest.prompt()
 			.getInstructions()
 			.removeIf(element -> element.getMessageType() == MessageType.SYSTEM);
@@ -315,6 +322,22 @@ public class KnowledgeBaseRetrievalAdvisor implements BaseAdvisor {
 	 */
 	private Map<String, Object> buildFileSearchRequestContext(String query, FileSearchOptions fileSearchOptions) {
 		return Map.of("query", query, "search_options", fileSearchOptions);
+	}
+
+	private String renderSystemPromptSafely(String template, Map<String, Object> params) {
+		String result = template == null ? "" : template;
+		if (CollectionUtils.isEmpty(params)) {
+			return result;
+		}
+		for (Map.Entry<String, Object> entry : params.entrySet()) {
+			String key = entry.getKey();
+			if (key == null) {
+				continue;
+			}
+			String value = entry.getValue() == null ? "" : String.valueOf(entry.getValue());
+			result = result.replace("{" + key + "}", value);
+		}
+		return result;
 	}
 
 }
