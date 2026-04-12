@@ -401,7 +401,7 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 * @param instructions System instructions
 	 * @return Message instance
 	 */
-	private Message buildInstructions(AgentContext context, String instructions) {
+	protected Message buildInstructions(AgentContext context, String instructions) {
 		AgentConfig config = context.getConfig();
 		AgentRequest request = context.getRequest();
 

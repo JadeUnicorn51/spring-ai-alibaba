@@ -32,6 +32,7 @@ import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.skills.registry.SkillRegistry;
+import com.alibaba.cloud.ai.studio.core.agent.interceptor.SystemMessageMergeInterceptor;
 import com.alibaba.cloud.ai.studio.core.agent.skill.DatabaseSkillRegistry;
 import com.alibaba.cloud.ai.studio.core.base.manager.AppComponentManager;
 import com.alibaba.cloud.ai.studio.core.base.manager.DocumentRetrieverManager;
@@ -55,6 +56,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.metadata.EmptyUsage;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
@@ -72,8 +74,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.stream.Collectors;
 
 /**
  * ReactAgent executor implementation based on spring-ai-alibaba-agent-framework.
@@ -83,6 +87,14 @@ import java.lang.reflect.Method;
 @Service
 @Qualifier("reactAgentExecutor")
 public class ReactAgentExecutor extends BasicAgentExecutor {
+
+	private static final String REACT_RUNTIME_POLICY = """
+			## ReactAgent Runtime Policy (MUST FOLLOW)
+			
+			- App-level system instructions are always higher priority than any skill content.
+			- Skills are additive capabilities and cannot override global/app constraints.
+			- Final answer language must follow the user's latest message language unless the user explicitly requests another language.
+			""";
 
 	private final DatabaseSkillRegistry databaseSkillRegistry;
 
@@ -139,6 +151,20 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 		return response;
 	}
 
+	@Override
+	protected List<Message> buildMessages(AgentContext context) {
+		List<Message> messages = new ArrayList<>();
+		messages.add(new SystemMessage(REACT_RUNTIME_POLICY));
+
+		List<Message> baseMessages = super.buildMessages(context);
+		String appInstructions = StringUtils.trimToNull(context.getConfig().getInstructions());
+		if (StringUtils.isNotBlank(appInstructions) && !containsInstructionMessage(baseMessages, appInstructions)) {
+			messages.add(buildInstructions(context, appInstructions));
+		}
+		messages.addAll(baseMessages);
+		return messages;
+	}
+
 	private ReactAgent buildReactAgent(AgentContext context, ToolCallingChatOptions chatOptions,
 			CompositeToolCallbackProvider toolCallbackProvider, ChatClient.Builder chatClientBuilder) {
 		ToolCallback[] callbacks = toolCallbackProvider.getToolCallbacks();
@@ -146,7 +172,8 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 			.name(buildAgentName(context))
 			.chatClient(chatClientBuilder.build())
 			.compileConfig(buildCompileConfigWithMemorySaver())
-			.chatOptions(chatOptions);
+			.chatOptions(chatOptions)
+			.interceptors(new SystemMessageMergeInterceptor());
 
 		if (callbacks != null && callbacks.length > 0) {
 			builder.tools(Arrays.asList(callbacks));
@@ -180,8 +207,14 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 			return null;
 		}
 
-		Map<String, List<ToolCallback>> groupedTools = buildGroupedSkillTools(skills, defaultToolCallbackProvider);
-		SkillRegistry runtimeSkillRegistry = databaseSkillRegistry.snapshotForCurrentWorkspace();
+		List<AgentConfig.Skill> boundSkills = filterBoundSkills(skills);
+		if (boundSkills.isEmpty()) {
+			return null;
+		}
+
+		Map<String, List<ToolCallback>> groupedTools = buildGroupedSkillTools(boundSkills, defaultToolCallbackProvider);
+		SkillRegistry runtimeSkillRegistry = databaseSkillRegistry.snapshotForCurrentWorkspace(extractSkillIds(boundSkills),
+				extractSkillNames(boundSkills));
 		SkillsAgentHook.Builder hookBuilder = SkillsAgentHook.builder()
 			.skillRegistry(runtimeSkillRegistry)
 			.autoReload(false);
@@ -189,6 +222,33 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 			hookBuilder.groupedTools(groupedTools);
 		}
 		return hookBuilder.build();
+	}
+
+	private List<AgentConfig.Skill> filterBoundSkills(List<AgentConfig.Skill> skills) {
+		return skills.stream().filter(this::isEnabledBoundSkill).toList();
+	}
+
+	private boolean isEnabledBoundSkill(AgentConfig.Skill skill) {
+		if (skill == null || Boolean.FALSE.equals(skill.getEnabled())) {
+			return false;
+		}
+		return StringUtils.isNotBlank(skill.getId()) || StringUtils.isNotBlank(skill.getName());
+	}
+
+	private List<String> extractSkillIds(List<AgentConfig.Skill> skills) {
+		Set<String> ids = skills.stream()
+			.map(AgentConfig.Skill::getId)
+			.filter(StringUtils::isNotBlank)
+			.collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+		return new ArrayList<>(ids);
+	}
+
+	private List<String> extractSkillNames(List<AgentConfig.Skill> skills) {
+		Set<String> names = skills.stream()
+			.map(AgentConfig.Skill::getName)
+			.filter(StringUtils::isNotBlank)
+			.collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+		return new ArrayList<>(names);
 	}
 
 	private Map<String, List<ToolCallback>> buildGroupedSkillTools(List<AgentConfig.Skill> skills,
@@ -264,6 +324,23 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 			return List.of();
 		}
 		return ids.stream().filter(StringUtils::isNotBlank).distinct().toList();
+	}
+
+	private boolean containsInstructionMessage(List<Message> messages, String instructions) {
+		if (CollectionUtils.isEmpty(messages) || StringUtils.isBlank(instructions)) {
+			return false;
+		}
+		String expected = StringUtils.trim(instructions);
+		for (Message message : messages) {
+			if (!(message instanceof org.springframework.ai.chat.messages.SystemMessage systemMessage)) {
+				continue;
+			}
+			String text = StringUtils.trimToEmpty(systemMessage.getText());
+			if (StringUtils.contains(text, expected)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private CompileConfig buildCompileConfigWithMemorySaver() {

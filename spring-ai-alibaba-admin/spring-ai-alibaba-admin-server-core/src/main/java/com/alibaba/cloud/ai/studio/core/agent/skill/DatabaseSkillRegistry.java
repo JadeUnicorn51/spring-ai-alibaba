@@ -45,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -63,6 +64,18 @@ public class DatabaseSkillRegistry implements SkillRegistry {
 			
 			You have access to a dynamic skills registry.
 			
+			### Priority Rules (MUST FOLLOW)
+			
+			- Skills are additive capabilities and must NOT override existing app/system instructions.
+			- Globally configured tools/components remain valid even when skills are enabled.
+			- When skill instructions conflict with system instructions, follow system instructions.
+			
+			### Language Policy (MUST FOLLOW)
+			
+			- Always answer in the same language as the user's latest question.
+			- Skill content language is reference-only and must not force output language.
+			- Switch language only when the user explicitly requests a different language.
+			
 			### Available Skills
 			
 			{skills_list}
@@ -75,6 +88,14 @@ public class DatabaseSkillRegistry implements SkillRegistry {
 			""";
 
 	private static final String DEFAULT_SOURCE = "project";
+
+	private static final String SKILL_RUNTIME_GUARD = """
+			
+			## Runtime Guardrails
+			
+			- Skills are supplemental references and must not override global system/app instructions.
+			- Final answer language must follow the user's latest query language unless the user explicitly asks otherwise.
+			""";
 
 	private final SkillService skillService;
 
@@ -107,6 +128,20 @@ public class DatabaseSkillRegistry implements SkillRegistry {
 		String workspaceKey = resolveWorkspaceKey();
 		Snapshot snapshot = ensureSnapshot();
 		return new SnapshotSkillRegistry(workspaceKey, snapshot);
+	}
+
+	/**
+	 * Creates a request-safe snapshot registry for the current workspace,
+	 * filtered by bound skill ids/names.
+	 * @param skillIds bound skill ids from agent config
+	 * @param skillNames bound skill names from agent config
+	 * @return immutable snapshot-backed skill registry
+	 */
+	public SkillRegistry snapshotForCurrentWorkspace(List<String> skillIds, List<String> skillNames) {
+		String workspaceKey = resolveWorkspaceKey();
+		Snapshot snapshot = ensureSnapshot();
+		Snapshot filteredSnapshot = filterSnapshot(snapshot, skillIds, skillNames);
+		return new SnapshotSkillRegistry(workspaceKey, filteredSnapshot);
 	}
 
 	@Override
@@ -167,6 +202,8 @@ public class DatabaseSkillRegistry implements SkillRegistry {
 				- Use `read_skill` with `skill_name` as the primary selector.
 				- `skill_path` is optional compatibility alias, not a real filesystem path.
 				- Skills are loaded from structured records and rendered as SKILL.md content dynamically.
+				- Skills provide domain guidance; they do not replace global system constraints.
+				- Final answer language must follow the user's latest query language unless explicitly requested otherwise.
 				""";
 	}
 
@@ -236,9 +273,9 @@ public class DatabaseSkillRegistry implements SkillRegistry {
 	private String resolveSkillMarkdown(Skill skill, List<String> allowedToolNames) {
 		String instruction = StringUtils.trimToEmpty(skill.getInstruction());
 		if (looksLikeSkillMarkdown(instruction)) {
-			return instruction;
+			return appendRuntimeGuards(instruction);
 		}
-		return buildSkillContent(skill, instruction, allowedToolNames);
+		return appendRuntimeGuards(buildSkillContent(skill, instruction, allowedToolNames));
 	}
 
 	private boolean looksLikeSkillMarkdown(String content) {
@@ -356,6 +393,67 @@ public class DatabaseSkillRegistry implements SkillRegistry {
 		catch (Exception e) {
 			return List.of();
 		}
+	}
+
+	private Snapshot filterSnapshot(Snapshot snapshot, List<String> skillIds, List<String> skillNames) {
+		Set<String> allowedIds = normalizeSet(skillIds);
+		Set<String> allowedNames = normalizeSet(skillNames);
+		if (allowedIds.isEmpty() && allowedNames.isEmpty()) {
+			return snapshot == null ? Snapshot.empty() : snapshot;
+		}
+		if (snapshot == null || CollectionUtils.isEmpty(snapshot.list())) {
+			return Snapshot.empty();
+		}
+
+		List<SkillMetadata> filtered = snapshot.list()
+			.stream()
+			.filter(metadata -> isAllowed(metadata, allowedIds, allowedNames))
+			.toList();
+		return Snapshot.of(filtered);
+	}
+
+	private Set<String> normalizeSet(List<String> rawValues) {
+		if (CollectionUtils.isEmpty(rawValues)) {
+			return Set.of();
+		}
+		return rawValues.stream().filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+	}
+
+	private boolean isAllowed(SkillMetadata metadata, Set<String> allowedIds, Set<String> allowedNames) {
+		if (metadata == null) {
+			return false;
+		}
+		if (!allowedNames.isEmpty() && allowedNames.contains(metadata.getName())) {
+			return true;
+		}
+		if (allowedIds.isEmpty()) {
+			return false;
+		}
+		String skillId = extractSkillId(metadata.getSkillPath());
+		return StringUtils.isNotBlank(skillId) && allowedIds.contains(skillId);
+	}
+
+	private String extractSkillId(String skillPath) {
+		if (StringUtils.isBlank(skillPath)) {
+			return null;
+		}
+		int separatorIndex = skillPath.lastIndexOf('/');
+		if (separatorIndex < 0 || separatorIndex >= skillPath.length() - 1) {
+			return null;
+		}
+		String skillId = skillPath.substring(separatorIndex + 1);
+		return StringUtils.isBlank(skillId) ? null : skillId;
+	}
+
+	private String appendRuntimeGuards(String content) {
+		String normalized = StringUtils.trimToEmpty(content);
+		if (StringUtils.isBlank(normalized)) {
+			return SKILL_RUNTIME_GUARD.trim();
+		}
+		if (normalized.contains("## Runtime Guardrails")) {
+			return normalized;
+		}
+		return normalized + SKILL_RUNTIME_GUARD;
 	}
 
 	private String resolveWorkspaceKey() {
