@@ -48,6 +48,9 @@ ALTER TABLE application_version ADD INDEX idx_tenant_id (tenant_id);
 ALTER TABLE knowledge_base ADD COLUMN tenant_id VARCHAR(64) COMMENT 'Tenant ID' AFTER id;
 ALTER TABLE knowledge_base ADD INDEX idx_tenant_id (tenant_id);
 
+ALTER TABLE skill ADD COLUMN tenant_id VARCHAR(64) COMMENT 'Tenant ID' AFTER id;
+ALTER TABLE skill ADD INDEX idx_tenant_id (tenant_id);
+
 ALTER TABLE document ADD COLUMN tenant_id VARCHAR(64) COMMENT 'Tenant ID' AFTER id;
 ALTER TABLE document ADD INDEX idx_tenant_id (tenant_id);
 

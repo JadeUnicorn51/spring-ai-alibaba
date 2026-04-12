@@ -14,6 +14,7 @@ import { getKnowledgeListByCodes } from '@/services/knowledge';
 import { listMcpServersByCodes } from '@/services/mcp';
 import { getModelDetail } from '@/services/modelService';
 import { getPluginToolsByIds } from '@/services/plugin';
+import { getSkillsByCodes } from '@/services/skill';
 import { convertDifyToSpringAI } from '@/services/difyConverter';
 import { IAppComponentListItem } from '@/types/appComponent';
 import {
@@ -104,39 +105,37 @@ const normalizeFileSearchConfig = (
   };
 };
 
-const getSkillToolIds = (skill: IAgentSkill): string[] => {
-  if (skill.tool_ids?.length) {
-    return skill.tool_ids.filter((id): id is string => !!id);
+const querySkillsByCodes = (skillIds: string[] = []): Promise<IAgentSkill[]> => {
+  if (!skillIds.length) {
+    return Promise.resolve([]);
   }
-
-  if (!skill.tools?.length) {
-    return [];
-  }
-
-  return skill.tools
-    .map((tool) => tool.tool_id)
-    .filter((id): id is string => !!id);
+  return getSkillsByCodes(skillIds).then((res) =>
+    (res || []).map((item) => ({
+      id: item.skill_id,
+      name: item.name,
+      description: item.description,
+      instruction: item.instruction,
+      enabled: item.enabled,
+      tool_ids: item.tool_ids || [],
+      mcp_server_ids: item.mcp_server_ids || [],
+      agent_component_ids: item.agent_component_ids || [],
+      workflow_component_ids: item.workflow_component_ids || [],
+    })),
+  );
 };
 
-const normalizeSkillsWithToolInfos = async (
-  skills?: IAgentSkill[],
-): Promise<IAgentSkill[]> => {
-  if (!skills?.length) {
+const extractSkillIds = (
+  config: Pick<IAssistantConfig, 'skill_ids' | 'skills'>,
+): string[] => {
+  if (config.skill_ids?.length) {
+    return config.skill_ids.filter((id): id is string => !!id);
+  }
+  if (!config.skills?.length) {
     return [];
   }
-
-  const normalizedSkills: IAgentSkill[] = [];
-  for (const skill of skills) {
-    const tool_ids = getSkillToolIds(skill);
-    const tools = await queryToolsByCode(tool_ids.map((id) => ({ id })));
-    normalizedSkills.push({
-      ...skill,
-      tool_ids,
-      tools,
-    });
-  }
-
-  return normalizedSkills;
+  return config.skills
+    .map((skill) => skill.id)
+    .filter((id): id is string => !!id);
 };
 
 export const transformAppData = (
@@ -151,11 +150,7 @@ export const transformAppData = (
     ...extraConfig
   } = cacheAppDetailWithInfo;
   const normalizedFileSearch = normalizeFileSearchConfig(file_search);
-  const normalizedSkills = (extraConfig.skills || []).map((skill) => ({
-    ...skill,
-    tool_ids: getSkillToolIds(skill),
-    tools: undefined,
-  }));
+  const skillIds = extractSkillIds(extraConfig);
 
   const newAppConfig = {
     ...extraConfig,
@@ -172,7 +167,8 @@ export const transformAppData = (
         [],
       kbs: undefined,
     },
-    skills: normalizedSkills,
+    skill_ids: skillIds,
+    skills: undefined,
   };
   return newAppConfig as IAssistantConfig;
 };
@@ -271,9 +267,8 @@ export default function AssistantAppEdit() {
     const normalizedFileSearch = normalizeFileSearchConfig(
       appDetail.config.file_search,
     );
-    const normalizedSkills = await normalizeSkillsWithToolInfos(
-      appDetail.config.skills,
-    );
+    const skillIds = extractSkillIds(appDetail.config);
+    const normalizedSkills = await querySkillsByCodes(skillIds);
     const detailWithInfos: IAssistantAppDetailWithInfos = {
       ...appDetail,
       config: {
@@ -287,6 +282,7 @@ export default function AssistantAppEdit() {
           ...normalizedFileSearch,
           kbs: knowledgeBaseList,
         },
+        skill_ids: skillIds,
         skills: normalizedSkills,
       },
     };
@@ -491,8 +487,38 @@ export default function AssistantAppEdit() {
       });
     }
 
-    if (tools.length > 0) {
-      agentDSL.tools = tools;
+    // 娣诲姞 Skill 缁戝畾鐨勫伐鍏穒cp/缁勪欢
+    if (config.skills && config.skills.length > 0) {
+      config.skills.forEach((skill) => {
+        if (skill.enabled === false) {
+          return;
+        }
+        skill.tool_ids?.forEach((id) => {
+          if (id) {
+            tools.push(id);
+          }
+        });
+        skill.mcp_server_ids?.forEach((id) => {
+          if (id) {
+            tools.push(`mcp:${id}`);
+          }
+        });
+        skill.agent_component_ids?.forEach((id) => {
+          if (id) {
+            tools.push(`agent_component:${id}`);
+          }
+        });
+        skill.workflow_component_ids?.forEach((id) => {
+          if (id) {
+            tools.push(`workflow_component:${id}`);
+          }
+        });
+      });
+    }
+
+    const dedupTools = Array.from(new Set(tools));
+    if (dedupTools.length > 0) {
+      agentDSL.tools = dedupTools;
     }
 
     // 构建 handle 配置（透传字段，用于存储额外的配置信息）

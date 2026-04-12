@@ -214,6 +214,36 @@ CREATE TABLE `knowledge_base`
     COMMENT ='knowledge base info';
 
 /******************************************/
+/*   table = skill                        */
+/******************************************/
+DROP TABLE IF EXISTS `skill`;
+CREATE TABLE `skill`
+(
+    `id`                     BIGINT(20) UNSIGNED AUTO_INCREMENT NOT NULL COMMENT 'pk',
+    `workspace_id`           VARCHAR(64)                        NOT NULL COMMENT 'workspace id',
+    `skill_id`               VARCHAR(64)                        NOT NULL COMMENT 'skill id',
+    `status`                 TINYINT(4)                         NOT NULL DEFAULT 1 COMMENT 'status: 0-deleted, 1-normal',
+    `enabled`                TINYINT(4)                         NOT NULL DEFAULT 1 COMMENT 'enabled: 0-disabled, 1-enabled',
+    `name`                   VARCHAR(255)                       NOT NULL COMMENT 'skill name',
+    `description`            VARCHAR(4096)                               DEFAULT NULL COMMENT 'skill description',
+    `instruction`            TEXT                                        DEFAULT NULL COMMENT 'instruction patch',
+    `tool_ids`               TEXT                                        DEFAULT NULL COMMENT 'tool ids json array',
+    `mcp_server_ids`         TEXT                                        DEFAULT NULL COMMENT 'mcp server ids json array',
+    `agent_component_ids`    TEXT                                        DEFAULT NULL COMMENT 'agent component ids json array',
+    `workflow_component_ids` TEXT                                        DEFAULT NULL COMMENT 'workflow component ids json array',
+    `gmt_create`             DATETIME                           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `gmt_modified`           DATETIME                           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `creator`                VARCHAR(64)                        NOT NULL COMMENT 'creator uid',
+    `modifier`               VARCHAR(64)                        NOT NULL COMMENT 'modifier uid',
+    PRIMARY KEY (id),
+    UNIQUE KEY `uk_skill_id` (`skill_id`),
+    KEY `idx_workspace_status_name` (`workspace_id`, `status`, `name`)
+) ENGINE = InnoDB
+  AUTO_INCREMENT = 10000
+  DEFAULT CHARSET = utf8mb4
+    COMMENT ='skill info';
+
+/******************************************/
 /*   table = document                      */
 /******************************************/
 DROP TABLE IF EXISTS `document`;

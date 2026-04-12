@@ -150,9 +150,9 @@ public class KnowledgeBaseRetrievalAdvisor implements BaseAdvisor {
 			PromptAssert.templateHasRequiredPlaceholders(promptTemplate, RagConstants.DOCUMENTS_PLACEHOLDER);
 		}
 		catch (Exception e) {
-			throw new BizException(
-					ErrorCode.INVALID_PARAMS.toError("documents", "{documents} placeholder is missing in instructions"),
-					e);
+//			throw new BizException(
+//					ErrorCode.INVALID_PARAMS.toError("documents", "{documents} placeholder is missing in instructions"),
+//					e);
 		}
 
 		Message systemMessage = promptTemplate.createMessage(promptParameters);

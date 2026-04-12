@@ -159,6 +159,7 @@ export interface IAssistantConfig {
   workflow_components?: string[]; // Workflow components
   modality_type?: ModalityType; // Interaction modality type
   prompt_variables?: UserPromptParams[]; // User defined prompt parameters
+  skill_ids?: string[]; // Bound skill IDs
   skills?: IAgentSkill[]; // Skills (tool bundles)
   prologue?: {
     prologue_text: string; // Opening remarks

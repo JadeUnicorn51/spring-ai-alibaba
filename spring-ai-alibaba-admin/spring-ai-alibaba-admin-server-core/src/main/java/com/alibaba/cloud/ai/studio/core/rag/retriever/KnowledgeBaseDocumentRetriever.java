@@ -58,6 +58,8 @@ import static com.alibaba.cloud.ai.studio.core.utils.LogUtils.SUCCESS;
 @RequiredArgsConstructor
 public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 
+	private static final int MAX_RETRIEVAL_QUERY_LENGTH = 1024;
+
 	/** List of knowledge bases to search from */
 	private final List<KnowledgeBase> knowledgeBases;
 
@@ -83,10 +85,11 @@ public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 		Assert.notNull(query.context(), "query context can not be null");
 
 		long start = System.currentTimeMillis();
+		String retrievalQueryText = truncateQueryText(query.text());
 		List<CompletableFuture<List<Document>>> futureList = new ArrayList<>();
 		for (KnowledgeBase knowledgeBase : knowledgeBases) {
 			CompletableFuture<List<Document>> textFuture = CompletableFuture
-				.supplyAsync(() -> retrieve(knowledgeBase, query), ThreadPoolUtils.DEFAULT_TASK_EXECUTOR);
+				.supplyAsync(() -> retrieve(knowledgeBase, query, retrievalQueryText), ThreadPoolUtils.DEFAULT_TASK_EXECUTOR);
 			futureList.add(textFuture);
 		}
 
@@ -104,19 +107,19 @@ public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 				.limit(topK)
 				.toList();
 
-			LogUtils.monitor("DocumentRetriever", "retrieve", start, SUCCESS, query.text(), results.size());
+			LogUtils.monitor("DocumentRetriever", "retrieve", start, SUCCESS, retrievalQueryText, results.size());
 			return results;
 		}
 		catch (BizException e) {
-			LogUtils.monitor("DocumentRetriever", "retrieve", start, FAIL, query.text(), null);
+			LogUtils.monitor("DocumentRetriever", "retrieve", start, FAIL, retrievalQueryText, null);
 			throw e;
 		}
 		catch (InterruptedException | ExecutionException e) {
-			LogUtils.monitor("DocumentRetriever", "retrieve", start, FAIL, query.text(), null);
+			LogUtils.monitor("DocumentRetriever", "retrieve", start, FAIL, retrievalQueryText, null);
 			throw new BizException(ErrorCode.DOCUMENT_RETRIEVAL_ERROR.toError(), e);
 		}
 		catch (TimeoutException e) {
-			LogUtils.monitor("DocumentRetriever", "retrieve", start, FAIL, query.text(), null);
+			LogUtils.monitor("DocumentRetriever", "retrieve", start, FAIL, retrievalQueryText, null);
 			throw new BizException(ErrorCode.DOCUMENT_RETRIEVAL_TIMEOUT.toError(), e);
 		}
 	}
@@ -128,7 +131,7 @@ public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 	 * @param query The search query
 	 * @return List of retrieved documents
 	 */
-	private List<Document> retrieve(KnowledgeBase knowledgeBase, Query query) {
+	private List<Document> retrieve(KnowledgeBase knowledgeBase, Query query, String retrievalQueryText) {
 		VectorStore vectorStore = vectorStoreFactory.getVectorStoreService()
 			.getVectorStore(knowledgeBase.getIndexConfig());
 		var b = new FilterExpressionBuilder();
@@ -138,7 +141,7 @@ public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 		SearchType searchType = SearchType.valueOf(searchOptions.getSearchType().toUpperCase());
 
 		SearchRequest.Builder searchRequestBuilder = SearchRequest.builder()
-			.query(query.text())
+			.query(retrievalQueryText)
 			.filterExpression(exp)
 			.searchType(searchType);
 		if (searchOptions.getSimilarityThreshold() != null) {
@@ -157,6 +160,16 @@ public class KnowledgeBaseDocumentRetriever implements DocumentRetriever {
 		}
 
 		return documents;
+	}
+
+	private String truncateQueryText(String queryText) {
+		if (queryText == null) {
+			return "";
+		}
+		if (queryText.length() <= MAX_RETRIEVAL_QUERY_LENGTH) {
+			return queryText;
+		}
+		return queryText.substring(0, MAX_RETRIEVAL_QUERY_LENGTH);
 	}
 
 	/**

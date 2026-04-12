@@ -28,6 +28,10 @@ const menus: {
       dm: '知识库',
     }),
   },
+  {
+    to: 'skill',
+    title: '技能',
+  },
 ];
 
 export default function () {
@@ -43,3 +47,4 @@ export default function () {
     </div>
   );
 }
+

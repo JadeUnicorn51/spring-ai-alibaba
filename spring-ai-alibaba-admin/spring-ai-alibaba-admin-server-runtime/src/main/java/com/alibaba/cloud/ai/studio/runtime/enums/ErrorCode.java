@@ -287,6 +287,13 @@ public enum ErrorCode {
 			"Failed to delete component.application already release to component"),
 
 	/**
+	 * skill error code
+	 */
+	SKILL_NAME_EXISTS(400, INVALID_REQUEST_ERROR, "SkillNameExists", "Skill name already exists."),
+
+	SKILL_NOT_FOUND(404, RESPONSE_ERROR, "SkillNotFound", "Skill can not be found."),
+
+	/**
 	 * file error code
 	 */
 	FILE_NOT_FOUND(400, RESPONSE_ERROR, "FileNotFound", "File can not be found."),

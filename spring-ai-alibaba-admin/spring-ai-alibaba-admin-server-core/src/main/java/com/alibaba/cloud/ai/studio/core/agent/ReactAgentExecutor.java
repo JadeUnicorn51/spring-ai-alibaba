@@ -22,13 +22,17 @@ import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.alibaba.cloud.ai.graph.agent.Builder;
+import com.alibaba.cloud.ai.graph.agent.hook.Hook;
 import com.alibaba.cloud.ai.graph.agent.hook.modelcalllimit.ModelCallLimitHook;
+import com.alibaba.cloud.ai.graph.agent.hook.skills.SkillsAgentHook;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.checkpoint.config.SaverConfig;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
 import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
+import com.alibaba.cloud.ai.graph.skills.registry.SkillRegistry;
+import com.alibaba.cloud.ai.studio.core.agent.skill.DatabaseSkillRegistry;
 import com.alibaba.cloud.ai.studio.core.base.manager.AppComponentManager;
 import com.alibaba.cloud.ai.studio.core.base.manager.DocumentRetrieverManager;
 import com.alibaba.cloud.ai.studio.core.base.manager.FileManager;
@@ -80,12 +84,15 @@ import java.lang.reflect.Method;
 @Qualifier("reactAgentExecutor")
 public class ReactAgentExecutor extends BasicAgentExecutor {
 
+	private final DatabaseSkillRegistry databaseSkillRegistry;
+
 	public ReactAgentExecutor(ToolExecutionService toolExecutionService, PluginService pluginService,
 			McpServerService mcpServerService, AppComponentManager appComponentManager,
 			DocumentRetrieverManager documentRetrieverManager, ChatMemory chatMemory, CommonConfig commonConfig,
-			ModelFactory modelFactory, FileManager fileManager) {
+			ModelFactory modelFactory, FileManager fileManager, DatabaseSkillRegistry databaseSkillRegistry) {
 		super(toolExecutionService, pluginService, mcpServerService, appComponentManager, documentRetrieverManager,
 				chatMemory, commonConfig, modelFactory, fileManager);
+		this.databaseSkillRegistry = databaseSkillRegistry;
 	}
 
 	@Override
@@ -145,15 +152,118 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 			builder.tools(Arrays.asList(callbacks));
 		}
 
+		List<Hook> hooks = new ArrayList<>();
+		SkillsAgentHook skillsAgentHook = buildSkillsAgentHook(context.getConfig(), toolCallbackProvider);
+		if (skillsAgentHook != null) {
+			hooks.add(skillsAgentHook);
+		}
+
 		int maxIterations = getMaxToolIterations(context.getConfig());
 		if (maxIterations < Integer.MAX_VALUE) {
-			builder.hooks(ModelCallLimitHook.builder()
+			hooks.add(ModelCallLimitHook.builder()
 				.runLimit(maxIterations + 1)
 				.exitBehavior(ModelCallLimitHook.ExitBehavior.END)
 				.build());
 		}
 
+		if (!hooks.isEmpty()) {
+			builder.hooks(hooks);
+		}
+
 		return builder.build();
+	}
+
+	private SkillsAgentHook buildSkillsAgentHook(AgentConfig config,
+			CompositeToolCallbackProvider defaultToolCallbackProvider) {
+		List<AgentConfig.Skill> skills = config.getSkills();
+		if (CollectionUtils.isEmpty(skills)) {
+			return null;
+		}
+
+		Map<String, List<ToolCallback>> groupedTools = buildGroupedSkillTools(skills, defaultToolCallbackProvider);
+		SkillRegistry runtimeSkillRegistry = databaseSkillRegistry.snapshotForCurrentWorkspace();
+		SkillsAgentHook.Builder hookBuilder = SkillsAgentHook.builder()
+			.skillRegistry(runtimeSkillRegistry)
+			.autoReload(false);
+		if (!groupedTools.isEmpty()) {
+			hookBuilder.groupedTools(groupedTools);
+		}
+		return hookBuilder.build();
+	}
+
+	private Map<String, List<ToolCallback>> buildGroupedSkillTools(List<AgentConfig.Skill> skills,
+			CompositeToolCallbackProvider defaultToolCallbackProvider) {
+		Map<String, List<ToolCallback>> groupedTools = new java.util.LinkedHashMap<>();
+		for (AgentConfig.Skill skill : skills) {
+			if (skill == null || Boolean.FALSE.equals(skill.getEnabled())) {
+				continue;
+			}
+
+			List<ToolCallback> callbacks = buildSkillToolCallbacks(skill, defaultToolCallbackProvider.getExtraParams());
+			String skillName = StringUtils.trimToNull(skill.getName());
+			if (StringUtils.isNotBlank(skillName) && !callbacks.isEmpty()) {
+				groupedTools.put(skill.getName(), callbacks);
+			}
+			String skillId = StringUtils.trimToNull(skill.getId());
+			if (StringUtils.isNotBlank(skillId) && !callbacks.isEmpty()) {
+				groupedTools.putIfAbsent(skillId, callbacks);
+			}
+		}
+		return groupedTools;
+	}
+
+	private List<ToolCallback> buildSkillToolCallbacks(AgentConfig.Skill skill, Map<String, Object> extraParams) {
+		AgentConfig skillConfig = new AgentConfig();
+		skillConfig.setTools(toPluginTools(skill.getToolIds()));
+		skillConfig.setMcpServers(toMcpServers(skill.getMcpServerIds()));
+		skillConfig.setAgentComponents(normalizeIds(skill.getAgentComponentIds()));
+		skillConfig.setWorkflowComponents(normalizeIds(skill.getWorkflowComponentIds()));
+
+		CompositeToolCallbackProvider provider = buildToolCallbackProvider(skillConfig, extraParams);
+		ToolCallback[] callbacks = provider.getToolCallbacks();
+		if (callbacks == null || callbacks.length == 0) {
+			return List.of();
+		}
+		return Arrays.asList(callbacks);
+	}
+
+	private List<AgentConfig.Tool> toPluginTools(List<String> toolIds) {
+		List<String> normalizedToolIds = normalizeIds(toolIds);
+		if (normalizedToolIds.isEmpty()) {
+			return List.of();
+		}
+
+		List<AgentConfig.Tool> tools = new ArrayList<>();
+		for (String toolId : normalizedToolIds) {
+			AgentConfig.Tool tool = new AgentConfig.Tool();
+			tool.setId(toolId);
+			tool.setType("plugin");
+			tools.add(tool);
+		}
+		return tools;
+	}
+
+	private List<AgentConfig.McpServer> toMcpServers(List<String> serverIds) {
+		List<String> normalizedServerIds = normalizeIds(serverIds);
+		if (normalizedServerIds.isEmpty()) {
+			return List.of();
+		}
+
+		List<AgentConfig.McpServer> servers = new ArrayList<>();
+		for (String serverId : normalizedServerIds) {
+			AgentConfig.McpServer server = new AgentConfig.McpServer();
+			server.setId(serverId);
+			server.setType("mcp");
+			servers.add(server);
+		}
+		return servers;
+	}
+
+	private List<String> normalizeIds(List<String> ids) {
+		if (CollectionUtils.isEmpty(ids)) {
+			return List.of();
+		}
+		return ids.stream().filter(StringUtils::isNotBlank).distinct().toList();
 	}
 
 	private CompileConfig buildCompileConfigWithMemorySaver() {

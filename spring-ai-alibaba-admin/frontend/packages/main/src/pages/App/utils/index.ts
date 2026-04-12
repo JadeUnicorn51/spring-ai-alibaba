@@ -95,6 +95,7 @@ const generateAgentConfig = () => {
     mcp_servers: [], // mcp servers
     agent_components: [], // agent components
     workflow_components: [], // workflow components
+    skill_ids: [], // bound skills
   };
 };
 

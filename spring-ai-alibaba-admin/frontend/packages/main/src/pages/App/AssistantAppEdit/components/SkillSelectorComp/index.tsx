@@ -1,70 +1,111 @@
-import { ToolService } from '@/services/tool';
-import { AssistantAppContext } from '@/pages/App/AssistantAppEdit/AssistantAppContext';
-import { PluginTool } from '@/types/plugin';
-import { IAgentSkill, AgentExecutionMode } from '@/types/appManage';
-import { ITool } from '@/types/tool';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Flex, Input, InputNumber, Select, Space, Switch, Typography } from 'antd';
+﻿import { AssistantAppContext } from '@/pages/App/AssistantAppEdit/AssistantAppContext';
+import { getSkillList, getSkillsByCodes } from '@/services/skill';
+import { AgentExecutionMode, IAgentSkill } from '@/types/appManage';
+import { ISkillItem } from '@/types/skill';
+import { Button, Flex, InputNumber, Select, Space, Typography } from 'antd';
 import { useContext, useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_MAX_ITERATIONS = 6;
+const SKILL_FETCH_SIZE = 200;
 
-const EMPTY_SKILL = (): IAgentSkill => ({
-  id: `skill_${Date.now()}`,
-  name: '',
-  description: '',
-  instruction: '',
-  enabled: true,
-  tool_ids: [],
-  tools: [],
+const toAgentSkill = (skill: ISkillItem): IAgentSkill => ({
+  id: skill.skill_id,
+  name: skill.name,
+  description: skill.description,
+  instruction: skill.instruction,
+  enabled: skill.enabled,
+  tool_ids: skill.tool_ids || [],
+  mcp_server_ids: skill.mcp_server_ids || [],
+  agent_component_ids: skill.agent_component_ids || [],
+  workflow_component_ids: skill.workflow_component_ids || [],
 });
 
-const mapToolToPluginTool = (tool: ITool): PluginTool => ({
-  tool_id: tool.toolId,
-  name: tool.name,
-  description: tool.description,
-});
-
-const normalizeToolIds = (skill: IAgentSkill): string[] => {
-  if (skill.tool_ids?.length) {
-    return skill.tool_ids.filter((id): id is string => !!id);
+const extractSkillIds = (config: {
+  skill_ids?: string[];
+  skills?: IAgentSkill[];
+}): string[] => {
+  if (config.skill_ids?.length) {
+    return config.skill_ids.filter((id): id is string => !!id);
   }
-  if (!skill.tools?.length) {
+  if (!config.skills?.length) {
     return [];
   }
-  return skill.tools
-    .map((tool) => tool.tool_id)
+  return config.skills
+    .map((skill) => skill.id)
     .filter((id): id is string => !!id);
 };
 
 export default function SkillSelectorComp() {
   const { appState, onAppConfigChange } = useContext(AssistantAppContext);
-  const [toolOptions, setToolOptions] = useState<ITool[]>([]);
+  const [skills, setSkills] = useState<ISkillItem[]>([]);
 
   const config = appState.appBasicConfig?.config;
   const executionMode: AgentExecutionMode =
     config?.execution_mode || 'basic_tool_loop';
-  const skills = config?.skills || [];
+  const selectedSkillIds = useMemo(
+    () =>
+      extractSkillIds({
+        skill_ids: config?.skill_ids,
+        skills: config?.skills,
+      }),
+    [config?.skill_ids, config?.skills],
+  );
 
   useEffect(() => {
-    ToolService.getTools()
+    getSkillList({ current: 1, size: SKILL_FETCH_SIZE })
       .then((res) => {
-        setToolOptions(Array.isArray(res) ? res : []);
+        setSkills(Array.isArray(res.records) ? res.records : []);
       })
       .catch(() => {
-        setToolOptions([]);
+        setSkills([]);
       });
   }, []);
 
-  const toolOptionItems = useMemo(
+  useEffect(() => {
+    const missingIds = selectedSkillIds.filter(
+      (id) => !skills.some((item) => item.skill_id === id),
+    );
+    if (!missingIds.length) {
+      return;
+    }
+    getSkillsByCodes(missingIds)
+      .then((res) => {
+        const appended = Array.isArray(res) ? res : [];
+        if (!appended.length) {
+          return;
+        }
+        setSkills((prev) => {
+          const merged = [...prev];
+          for (const item of appended) {
+            if (!merged.find((skill) => skill.skill_id === item.skill_id)) {
+              merged.push(item);
+            }
+          }
+          return merged;
+        });
+      })
+      .catch(() => {
+        // ignore fetch miss
+      });
+  }, [selectedSkillIds, skills]);
+
+  const skillOptions = useMemo(
     () =>
-      toolOptions
-        .filter((tool) => !!tool.toolId)
-        .map((tool) => ({
-          label: tool.name,
-          value: tool.toolId as string,
+      skills
+        .filter((skill) => !!skill.skill_id)
+        .map((skill) => ({
+          label: skill.name,
+          value: skill.skill_id,
         })),
-    [toolOptions],
+    [skills],
+  );
+
+  const selectedSkills = useMemo(
+    () =>
+      selectedSkillIds
+        .map((id) => skills.find((skill) => skill.skill_id === id))
+        .filter((item): item is ISkillItem => !!item),
+    [selectedSkillIds, skills],
   );
 
   const onChangeExecutionMode = (mode: AgentExecutionMode) => {
@@ -83,31 +124,15 @@ export default function SkillSelectorComp() {
     });
   };
 
-  const updateSkills = (nextSkills: IAgentSkill[]) => {
-    onAppConfigChange({ skills: nextSkills });
-  };
+  const onChangeSkillIds = (ids: string[]) => {
+    const nextSkills = ids
+      .map((id) => skills.find((item) => item.skill_id === id))
+      .filter((item): item is ISkillItem => !!item)
+      .map(toAgentSkill);
 
-  const onAddSkill = () => {
-    updateSkills([...skills, EMPTY_SKILL()]);
-  };
-
-  const onDeleteSkill = (index: number) => {
-    const nextSkills = skills.filter((_, i) => i !== index);
-    updateSkills(nextSkills);
-  };
-
-  const onChangeSkill = (index: number, patch: Partial<IAgentSkill>) => {
-    const nextSkills = skills.map((skill, i) => (i === index ? { ...skill, ...patch } : skill));
-    updateSkills(nextSkills);
-  };
-
-  const onChangeSkillTools = (index: number, toolIds: string[]) => {
-    const selectedTools = toolOptions
-      .filter((tool) => tool.toolId && toolIds.includes(tool.toolId))
-      .map(mapToolToPluginTool);
-    onChangeSkill(index, {
-      tool_ids: toolIds,
-      tools: selectedTools,
+    onAppConfigChange({
+      skill_ids: ids,
+      skills: nextSkills,
     });
   };
 
@@ -139,70 +164,45 @@ export default function SkillSelectorComp() {
       )}
 
       <Flex justify="space-between" align="center">
-        <Typography.Text strong>Skills</Typography.Text>
-        <Button size="small" icon={<PlusOutlined />} onClick={onAddSkill}>
-          Add Skill
+        <Typography.Text strong>Bound Skills</Typography.Text>
+        <Button size="small" onClick={() => window.open('/skill', '_blank')}>
+          管理技能
         </Button>
       </Flex>
 
-      {skills.map((skill, index) => (
-        <Space
-          key={skill.id || `skill_${index}`}
-          direction="vertical"
-          size={8}
-          style={{
-            width: '100%',
-            border: '1px solid var(--ag-ant-color-border-secondary)',
-            borderRadius: 8,
-            padding: 10,
-          }}
-        >
-          <Flex justify="space-between" align="center" gap={8}>
-            <Input
-              placeholder="Skill name"
-              value={skill.name}
-              onChange={(e) => onChangeSkill(index, { name: e.target.value })}
-            />
-            <Switch
-              checked={skill.enabled !== false}
-              onChange={(checked) => onChangeSkill(index, { enabled: checked })}
-            />
-            <Button
-              danger
-              type="text"
-              icon={<DeleteOutlined />}
-              onClick={() => onDeleteSkill(index)}
-            />
-          </Flex>
+      <Select
+        mode="multiple"
+        allowClear
+        showSearch
+        placeholder="选择要绑定的技能"
+        options={skillOptions}
+        value={selectedSkillIds}
+        onChange={onChangeSkillIds}
+      />
 
-          <Input
-            placeholder="Skill description (optional)"
-            value={skill.description}
-            onChange={(e) =>
-              onChangeSkill(index, { description: e.target.value })
-            }
-          />
-
-          <Select
-            mode="multiple"
-            allowClear
-            showSearch
-            placeholder="Select atomic tools"
-            options={toolOptionItems}
-            value={normalizeToolIds(skill)}
-            onChange={(value) => onChangeSkillTools(index, value)}
-          />
-
-          <Input.TextArea
-            rows={3}
-            placeholder="Skill instruction patch (optional)"
-            value={skill.instruction}
-            onChange={(e) =>
-              onChangeSkill(index, { instruction: e.target.value })
-            }
-          />
+      {!!selectedSkills.length && (
+        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          {selectedSkills.map((skill) => (
+            <div
+              key={skill.skill_id}
+              style={{
+                border: '1px solid var(--ag-ant-color-border-secondary)',
+                borderRadius: 8,
+                padding: '8px 10px',
+              }}
+            >
+              <Typography.Text strong>{skill.name}</Typography.Text>
+              <Typography.Paragraph
+                type="secondary"
+                style={{ margin: '4px 0 0 0' }}
+                ellipsis={{ rows: 2 }}
+              >
+                {skill.description || '暂无描述'}
+              </Typography.Paragraph>
+            </div>
+          ))}
         </Space>
-      ))}
+      )}
     </Flex>
   );
 }

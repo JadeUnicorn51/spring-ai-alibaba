@@ -16,7 +16,9 @@
 
 package com.alibaba.cloud.ai.studio.core.agent;
 
+import com.alibaba.cloud.ai.studio.core.base.service.SkillService;
 import com.alibaba.cloud.ai.studio.runtime.domain.app.AgentConfig;
+import com.alibaba.cloud.ai.studio.runtime.domain.skill.Skill;
 import com.alibaba.cloud.ai.studio.runtime.enums.agent.AgentExecutionMode;
 import com.alibaba.cloud.ai.studio.runtime.utils.JsonUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -37,6 +39,12 @@ import java.util.Map;
 public class AgentConfigResolver {
 
 	private static final int REACT_DEFAULT_MAX_ITERATIONS = 6;
+
+	private final SkillService skillService;
+
+	public AgentConfigResolver(SkillService skillService) {
+		this.skillService = skillService;
+	}
 
 	public AgentConfig resolve(AgentConfig sourceConfig) {
 		return resolveInternal(sourceConfig, false);
@@ -69,12 +77,63 @@ public class AgentConfigResolver {
 			}
 		}
 
-		mergeSkills(config);
+		fillSkillsFromBindings(config);
+		if (executionMode != AgentExecutionMode.REACT_AGENT) {
+			mergeSkills(config);
+		}
 		return config;
 	}
 
 	private AgentConfig deepCopy(AgentConfig sourceConfig) {
 		return JsonUtils.fromJson(JsonUtils.toJson(sourceConfig), AgentConfig.class);
+	}
+
+	private void fillSkillsFromBindings(AgentConfig config) {
+		List<String> skillIds = config.getSkillIds();
+		if (CollectionUtils.isEmpty(skillIds)) {
+			return;
+		}
+
+		List<Skill> boundSkills = skillService.listSkills(skillIds);
+		if (CollectionUtils.isEmpty(boundSkills)) {
+			return;
+		}
+
+		LinkedHashMap<String, AgentConfig.Skill> mergedSkills = new LinkedHashMap<>();
+		for (Skill boundSkill : boundSkills) {
+			if (boundSkill == null || StringUtils.isBlank(boundSkill.getSkillId())) {
+				continue;
+			}
+			mergedSkills.put(boundSkill.getSkillId(), toAgentSkill(boundSkill));
+		}
+
+		if (mergedSkills.isEmpty()) {
+			return;
+		}
+
+		if (!CollectionUtils.isEmpty(config.getSkills())) {
+			for (AgentConfig.Skill skill : config.getSkills()) {
+				if (skill == null || StringUtils.isBlank(skill.getId())) {
+					continue;
+				}
+				mergedSkills.putIfAbsent(skill.getId(), skill);
+			}
+		}
+		config.setSkills(new ArrayList<>(mergedSkills.values()));
+	}
+
+	private AgentConfig.Skill toAgentSkill(Skill source) {
+		AgentConfig.Skill skill = new AgentConfig.Skill();
+		skill.setId(source.getSkillId());
+		skill.setName(source.getName());
+		skill.setDescription(source.getDescription());
+		skill.setInstruction(source.getInstruction());
+		skill.setEnabled(source.getEnabled());
+		skill.setToolIds(source.getToolIds());
+		skill.setMcpServerIds(source.getMcpServerIds());
+		skill.setAgentComponentIds(source.getAgentComponentIds());
+		skill.setWorkflowComponentIds(source.getWorkflowComponentIds());
+		return skill;
 	}
 
 	private void mergeSkills(AgentConfig config) {

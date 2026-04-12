@@ -85,6 +85,10 @@ public class AgentConfig implements AppConfig, Serializable {
 	/** Initial context and suggested questions */
 	private Prologue prologue;
 
+	/** Bound skill ids, managed as standalone resources. */
+	@JsonProperty("skill_ids")
+	private List<String> skillIds;
+
 	/** Skill groups that compose atomic tools/components into reusable capability units. */
 	private List<Skill> skills;
 

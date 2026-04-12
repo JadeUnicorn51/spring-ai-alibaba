@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'umi';
 import { Layout as AntLayout, Menu } from 'antd';
 import {
@@ -34,69 +34,62 @@ import { isSuperAdminAccountType } from '@/utils/accountType';
 
 const { Sider, Content } = AntLayout;
 
-// 获取应该高亮的菜单项 key
 const getSelectedMenuKey = (pathname: string): string => {
-  // 应用相关页面
   if (pathname.startsWith('/app')) {
     return '/app';
   }
 
-  // MCP 相关页面
   if (pathname.startsWith('/mcp')) {
     return '/mcp';
   }
 
-  // 组件相关页面
   if (pathname.startsWith('/component')) {
     return '/component';
   }
 
-  // 知识库相关页面
   if (pathname.startsWith('/knowledge')) {
     return '/knowledge';
   }
 
-  // 设置相关页面
+  if (pathname.startsWith('/skill')) {
+    return '/skill';
+  }
+
   if (pathname.startsWith('/setting')) {
     return '/setting';
   }
 
-  // 调试页面
   if (pathname.startsWith('/debug')) {
     return '/debug';
   }
 
-  // Dify 转换页面
   if (pathname.startsWith('/dify')) {
     return '/dify';
   }
 
-  // Agent Schema 页面
   if (pathname.startsWith('/agent-schema')) {
     return '/agent-schema';
   }
 
-  // 平台租户管理页面
   if (pathname.startsWith('/admin/tenants')) {
     return '/admin/tenants';
   }
 
-  // 评测集相关页面
   if (pathname.startsWith('/admin/evaluation/gather')) {
     return '/admin/evaluation/gather';
   }
 
-  // 评估器相关页面
-  if (pathname.startsWith('/admin/evaluation/evaluator') || pathname === '/admin/evaluation/debug') {
+  if (
+    pathname.startsWith('/admin/evaluation/evaluator') ||
+    pathname === '/admin/evaluation/debug'
+  ) {
     return '/admin/evaluation/evaluator';
   }
 
-  // 实验相关页面
   if (pathname.startsWith('/admin/evaluation/experiment')) {
     return '/admin/evaluation/experiment';
   }
 
-  // Prompt 相关页面
   if (
     pathname.startsWith('/admin/prompt') ||
     pathname === '/admin/prompts' ||
@@ -109,12 +102,10 @@ const getSelectedMenuKey = (pathname: string): string => {
     return '/admin/prompts';
   }
 
-  // Tracing 页面
   if (pathname.startsWith('/admin/tracing')) {
     return '/admin/tracing';
   }
 
-  // 默认情况，直接返回当前路径
   return pathname;
 };
 
@@ -134,7 +125,6 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
     return () => window.removeEventListener(USER_UPDATED_EVENT, syncAccountType);
   }, []);
 
-  // 加载模型列表（用于 legacy 页面）
   useEffect(() => {
     PromptAPI.getModels()
       .then((res) => {
@@ -150,24 +140,21 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
       });
   }, []);
 
-  // 非 SUPER_ADMIN 禁止直接访问平台租户管理页
   useEffect(() => {
     if (location.pathname.startsWith('/admin/tenants') && !isSuperAdmin) {
       navigate('/app');
     }
   }, [location.pathname, isSuperAdmin, navigate]);
 
-  // 获取应该高亮的菜单项 key
   const selectedKey = useMemo(() => getSelectedMenuKey(location.pathname), [location.pathname]);
 
-  // 构建菜单项
   const menuItems = useMemo(() => {
     const items: any[] = [
       {
         key: 'studio',
         label: $i18n.get({
           id: 'main.layouts.SideMenu.studio',
-          dm: ' Agent Builder',
+          dm: 'Agent Builder',
         }),
         icon: <AppstoreOutlined />,
         children: [
@@ -194,11 +181,13 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
           },
           {
             key: '/knowledge',
-            label: $i18n.get({
-              id: 'main.pages.Knowledge.Test.index.knowledgeBase',
-              dm: '知识库',
-            }),
+            label: '知识库',
             icon: <DatabaseOutlined />,
+          },
+          {
+            key: '/skill',
+            label: '技能',
+            icon: <ToolOutlined />,
           },
           {
             key: '/dify',
@@ -293,7 +282,6 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
     navigate(key);
   };
 
-  // 判断是否应该隐藏侧边栏（登录页、首页等）
   const shouldHideSidebar = ['/login', '/', '/home'].includes(location.pathname);
 
   if (shouldHideSidebar) {
