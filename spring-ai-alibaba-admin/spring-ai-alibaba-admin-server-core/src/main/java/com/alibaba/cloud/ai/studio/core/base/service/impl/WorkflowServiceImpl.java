@@ -251,6 +251,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 			if (app == null) {
 				throw new BizException(ErrorCode.APP_NOT_FOUND.toError());
 			}
+			if (StringUtils.isBlank(context.getTenantId()) && StringUtils.isNotBlank(app.getTenantId())) {
+				context.setTenantId(app.getTenantId());
+			}
+			if (StringUtils.isBlank(workflowContext.getTenantId()) && StringUtils.isNotBlank(app.getTenantId())) {
+				workflowContext.setTenantId(app.getTenantId());
+			}
 
 			String configStr;
 			if (BooleanUtils.isTrue(request.getDraft())) {
