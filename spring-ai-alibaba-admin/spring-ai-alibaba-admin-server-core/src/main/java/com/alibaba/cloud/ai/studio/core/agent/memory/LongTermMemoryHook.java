@@ -103,15 +103,23 @@ public class LongTermMemoryHook extends MessagesModelHook {
 
 	private List<String> buildNamespace(RunnableConfig config) {
 		String workspaceId = config.metadata("workspace_id").map(String.class::cast).orElse(null);
+		String tenantId = config.metadata("tenant_id").map(String.class::cast).orElse(null);
 		if (StringUtils.isBlank(workspaceId)) {
 			RequestContext context = RequestContextHolder.getRequestContext();
 			workspaceId = context == null ? null : context.getWorkspaceId();
+			tenantId = StringUtils.defaultIfBlank(tenantId, context == null ? null : context.getTenantId());
 		}
 
-		if (StringUtils.isBlank(workspaceId)) {
+		if (StringUtils.isBlank(workspaceId) && StringUtils.isBlank(tenantId)) {
 			return List.of("user_profiles");
 		}
-		return List.of("workspace", workspaceId, "user_profiles");
+		if (StringUtils.isBlank(tenantId)) {
+			return List.of("workspace", workspaceId, "user_profiles");
+		}
+		if (StringUtils.isBlank(workspaceId)) {
+			return List.of("tenant", tenantId, "user_profiles");
+		}
+		return List.of("tenant", tenantId, "workspace", workspaceId, "user_profiles");
 	}
 
 	private String buildMemoryText(Map<String, Object> profileData, String userId) {

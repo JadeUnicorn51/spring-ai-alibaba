@@ -38,6 +38,10 @@ public class Application implements Serializable {
 	@JsonProperty("app_id")
 	private String appId;
 
+	/** Tenant identifier */
+	@JsonProperty("tenant_id")
+	private String tenantId;
+
 	/** Name of the application */
 	private String name;
 

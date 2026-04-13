@@ -107,6 +107,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, AppEntity> implements
 			entity.setAppId(appId);
 			entity.setStatus(AppStatus.DRAFT);
 			entity.setWorkspaceId(context.getWorkspaceId());
+			entity.setTenantId(context.getTenantId());
 			entity.setGmtCreate(new Date());
 			entity.setGmtModified(new Date());
 			entity.setCreator(context.getAccountId());

@@ -171,6 +171,9 @@ public class AgentServiceImpl implements AgentService {
 			if (app == null) {
 				throw new BizException(ErrorCode.APP_NOT_FOUND.toError());
 			}
+			if (StringUtils.isBlank(context.getTenantId()) && StringUtils.isNotBlank(app.getTenantId())) {
+				context.setTenantId(app.getTenantId());
+			}
 
 			String configStr;
 			if (request.isDraft()) {

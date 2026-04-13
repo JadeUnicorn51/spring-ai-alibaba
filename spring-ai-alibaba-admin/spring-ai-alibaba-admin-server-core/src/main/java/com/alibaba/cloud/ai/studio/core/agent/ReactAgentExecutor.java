@@ -426,6 +426,9 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 		if (StringUtils.isNotBlank(context.getWorkspaceId())) {
 			builder.addMetadata("workspace_id", context.getWorkspaceId());
 		}
+		if (StringUtils.isNotBlank(context.getTenantId())) {
+			builder.addMetadata("tenant_id", context.getTenantId());
+		}
 		if (longTermMemoryStore != null) {
 			builder.store(longTermMemoryStore);
 		}
