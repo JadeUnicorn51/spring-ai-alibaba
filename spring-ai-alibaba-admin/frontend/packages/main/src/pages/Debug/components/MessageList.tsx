@@ -1,6 +1,11 @@
 import React from 'react';
 import { Collapse, Tag, Typography } from 'antd';
-import { UserOutlined, RobotOutlined, ToolOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import {
+  UserOutlined,
+  RobotOutlined,
+  ToolOutlined,
+  ExclamationCircleOutlined,
+} from '@ant-design/icons';
 import { Message } from '../contexts/ChatContext';
 import { useConfigContext } from '../contexts/ConfigContext';
 import styles from '../index.module.less';
@@ -37,25 +42,46 @@ const MessageList: React.FC<MessageListProps> = ({ messages }) => {
   };
 
   const renderToolCalls = (toolCalls?: any[]) => {
-    if (!config.showToolCalls || !toolCalls || toolCalls.length === 0) return null;
+    if (!config.showToolCalls || !toolCalls || toolCalls.length === 0)
+      return null;
+
+    const normalizePayload = (value: any) => {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'string') return value;
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch (error) {
+        return String(value);
+      }
+    };
 
     return (
       <div className={styles.messageToolCalls}>
         <Collapse size="small" ghost>
-          <Panel header="🔧 工具调用详情" key="1">
-            {toolCalls.map((call, index) => (
-              <div key={index} style={{ marginBottom: 8 }}>
-                <Text strong>函数: {call.name}</Text>
-                <pre style={{ margin: '4px 0', fontSize: 11 }}>
-                  参数: {JSON.stringify(call.arguments, null, 2)}
-                </pre>
-                {call.result && (
+          <Panel header="馃敡 宸ュ叿璋冪敤璇︽儏" key="1">
+            {toolCalls.map((call, index) => {
+              const fn = call?.function || call;
+              const name = fn?.name || call?.name || '-';
+              const args = fn?.arguments ?? call?.arguments;
+              const output = fn?.output ?? call?.output ?? call?.result;
+              const type = call?.type;
+              const inputValue = normalizePayload(args);
+              const outputValue = normalizePayload(output);
+
+              return (
+                <div key={index} style={{ marginBottom: 8 }}>
+                  <Text strong>
+                    {type ? `类型: ${type} / ` : ''}函数: {name}
+                  </Text>
                   <pre style={{ margin: '4px 0', fontSize: 11 }}>
-                    结果: {JSON.stringify(call.result, null, 2)}
+                    参数: {inputValue || '无'}
                   </pre>
-                )}
-              </div>
-            ))}
+                  <pre style={{ margin: '4px 0', fontSize: 11 }}>
+                    结果: {outputValue || '无'}
+                  </pre>
+                </div>
+              );
+            })}
           </Panel>
         </Collapse>
       </div>
@@ -81,11 +107,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages }) => {
           className={`${styles.message} ${message.type === 'user' ? styles.user : ''}`}
         >
           <div className={styles.messageAvatar}>
-            {message.type === 'user' ? (
-              <UserOutlined />
-            ) : (
-              <RobotOutlined />
-            )}
+            {message.type === 'user' ? <UserOutlined /> : <RobotOutlined />}
           </div>
 
           <div className={styles.messageContent}>
