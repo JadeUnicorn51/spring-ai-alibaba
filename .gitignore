@@ -59,3 +59,9 @@ modified_mcp_config.json
 **/spans.json
 
 .checkstyle
+
+# local debug logs
+**/backend-login-debug*.log
+
+# local Claude config
+**/.claude/
