@@ -30,6 +30,8 @@ import java.util.Map;
 
 public class ToolArgumentsHelper {
 
+	public static final String REQUEST_CONTEXT_KEY = "_request_context";
+
 	/**
 	 * merge tool arguments with extraParams
 	 * @param functionInput function input

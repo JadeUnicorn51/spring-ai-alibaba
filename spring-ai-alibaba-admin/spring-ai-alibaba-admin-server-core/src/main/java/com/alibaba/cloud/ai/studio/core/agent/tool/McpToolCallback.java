@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.studio.runtime.domain.mcp.McpTool;
 import com.alibaba.cloud.ai.studio.runtime.utils.JsonUtils;
 import com.alibaba.cloud.ai.studio.core.base.service.McpServerService;
 import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
+import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -74,6 +75,7 @@ public class McpToolCallback implements AgentToolCallback {
 	@NotNull
 	@Override
 	public String call(@NotNull String functionInput) {
+		boolean injectedContext = ensureRequestContext();
 		String mcpServerId = mcpServerDetail.getServerCode();
 		Map<String, Object> arguments = ToolArgumentsHelper.mergeToolArguments(functionInput, extraParams, mcpServerId);
 
@@ -84,13 +86,19 @@ public class McpToolCallback implements AgentToolCallback {
 		request.setToolParams(arguments);
 		request.setRequestId(RequestContextHolder.getRequestContext().getRequestId());
 
-		Result<McpServerCallToolResponse> result = mcpServerService.callTool(request);
+		try {
+			Result<McpServerCallToolResponse> result = mcpServerService.callTool(request);
+			if (!result.isSuccess()) {
+				return JsonUtils.toJson(result);
+			}
 
-		if (!result.isSuccess()) {
-			return JsonUtils.toJson(result);
+			return JsonUtils.toJson(result.getData());
 		}
-
-		return JsonUtils.toJson(result.getData());
+		finally {
+			if (injectedContext) {
+				RequestContextHolder.clearRequestContext();
+			}
+		}
 	}
 
 	/**
@@ -110,6 +118,30 @@ public class McpToolCallback implements AgentToolCallback {
 	@Override
 	public ToolCallType getToolCallType() {
 		return ToolCallType.MCP_TOOL_CALL;
+	}
+
+	private boolean ensureRequestContext() {
+		RequestContext context = RequestContextHolder.getRequestContext();
+		if (context != null) {
+			return false;
+		}
+		RequestContext injected = resolveInjectedContext();
+		if (injected == null) {
+			throw new IllegalStateException("request context is missing for MCP tool execution");
+		}
+		RequestContextHolder.setRequestContext(injected);
+		return true;
+	}
+
+	private RequestContext resolveInjectedContext() {
+		if (extraParams == null) {
+			return null;
+		}
+		Object value = extraParams.get(ToolArgumentsHelper.REQUEST_CONTEXT_KEY);
+		if (value instanceof RequestContext requestContext) {
+			return requestContext;
+		}
+		return null;
 	}
 
 }

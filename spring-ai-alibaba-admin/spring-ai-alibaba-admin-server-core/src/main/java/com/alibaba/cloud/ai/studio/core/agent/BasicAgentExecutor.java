@@ -724,8 +724,16 @@ public class BasicAgentExecutor extends AbstractAgentExecutor {
 	 */
 	protected CompositeToolCallbackProvider buildToolCallbackProvider(AgentConfig config,
 			Map<String, Object> extraParams) {
+		Map<String, Object> mergedExtraParams = new HashMap<>();
+		if (extraParams != null) {
+			mergedExtraParams.putAll(extraParams);
+		}
+		RequestContext requestContext = RequestContextHolder.getRequestContext();
+		if (requestContext != null) {
+			mergedExtraParams.putIfAbsent(ToolArgumentsHelper.REQUEST_CONTEXT_KEY, requestContext);
+		}
 		return new CompositeToolCallbackProvider(config, pluginService, toolExecutionService, mcpServerService,
-				appComponentManager, extraParams);
+				appComponentManager, mergedExtraParams);
 	}
 
 	private Flux<AgentResponse> processToolCallsRecursively(ChatClient.Builder chatClientBuilder, ChatResponse response,

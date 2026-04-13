@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.studio.runtime.domain.component;
 
 import com.alibaba.cloud.ai.studio.runtime.enums.APIPluginValueSourceEnum;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -42,9 +43,11 @@ public class AppComponentConfig implements Serializable {
 	public static class Input {
 
 		/** User-defined parameters */
+		@JsonAlias("user_params")
 		private List<UserParams> userParams = new ArrayList<>();
 
 		/** System-defined parameters */
+		@JsonAlias("system_params")
 		private List<Params> systemParams = new ArrayList<>();
 
 	}
@@ -82,6 +85,7 @@ public class AppComponentConfig implements Serializable {
 		private Boolean display = true;
 
 		/** Default value for the parameter */
+		@JsonAlias("default_value")
 		private Object defaultValue;
 
 		/** Alternative name for the parameter */

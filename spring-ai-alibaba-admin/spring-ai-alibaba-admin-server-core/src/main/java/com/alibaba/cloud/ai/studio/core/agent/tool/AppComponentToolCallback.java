@@ -24,6 +24,8 @@ import com.alibaba.cloud.ai.studio.runtime.domain.tool.ToolCallSchema;
 import com.alibaba.cloud.ai.studio.runtime.domain.workflow.debug.WorkflowResponse;
 import com.alibaba.cloud.ai.studio.runtime.utils.JsonUtils;
 import com.alibaba.cloud.ai.studio.core.base.manager.AppComponentManager;
+import com.alibaba.cloud.ai.studio.core.context.RequestContextHolder;
+import com.alibaba.cloud.ai.studio.runtime.domain.RequestContext;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -75,6 +77,7 @@ public class AppComponentToolCallback implements AgentToolCallback {
 	@NotNull
 	@Override
 	public String call(@NotNull String toolInput) {
+		boolean injectedContext = ensureRequestContext();
 		Map<String, Object> arguments = ToolArgumentsHelper.mergeToolArguments(toolInput, extraParams, appComponentId);
 
 		AppComponentRequest request = new AppComponentRequest();
@@ -83,24 +86,31 @@ public class AppComponentToolCallback implements AgentToolCallback {
 		request.setStreamMode(false);
 		request.setType(componentType.getValue());
 
-		if (componentType == AppComponentTypeEnum.Agent) {
-			AgentResponse response = appComponentManager.executeAgentComponent(request);
-			if (!response.isSuccess()) {
-				return JsonUtils.toJson(response.getError());
-			}
+		try {
+			if (componentType == AppComponentTypeEnum.Agent) {
+				AgentResponse response = appComponentManager.executeAgentComponent(request);
+				if (!response.isSuccess()) {
+					return JsonUtils.toJson(response.getError());
+				}
 
-			return String.valueOf(response.getMessage().getContent());
-		}
-		else if (componentType == AppComponentTypeEnum.Workflow) {
-			WorkflowResponse response = appComponentManager.executeWorkflowComponent(request);
-			if (!response.isSuccess()) {
-				return JsonUtils.toJson(response.getError());
+				return String.valueOf(response.getMessage().getContent());
 			}
+			else if (componentType == AppComponentTypeEnum.Workflow) {
+				WorkflowResponse response = appComponentManager.executeWorkflowComponent(request);
+				if (!response.isSuccess()) {
+					return JsonUtils.toJson(response.getError());
+				}
 
-			return String.valueOf(response.getMessage().getContent());
+				return String.valueOf(response.getMessage().getContent());
+			}
+			else {
+				throw new IllegalArgumentException("unknown component type: " + componentType.getValue());
+			}
 		}
-		else {
-			throw new IllegalArgumentException("unknown component type: " + componentType.getValue());
+		finally {
+			if (injectedContext) {
+				RequestContextHolder.clearRequestContext();
+			}
 		}
 	}
 
@@ -121,6 +131,30 @@ public class AppComponentToolCallback implements AgentToolCallback {
 	@Override
 	public ToolCallType getToolCallType() {
 		return ToolCallType.COMPONENT_TOOL_CALL;
+	}
+
+	private boolean ensureRequestContext() {
+		RequestContext context = RequestContextHolder.getRequestContext();
+		if (context != null) {
+			return false;
+		}
+		RequestContext injected = resolveInjectedContext();
+		if (injected == null) {
+			throw new IllegalStateException("request context is missing for app component tool execution");
+		}
+		RequestContextHolder.setRequestContext(injected);
+		return true;
+	}
+
+	private RequestContext resolveInjectedContext() {
+		if (extraParams == null) {
+			return null;
+		}
+		Object value = extraParams.get(ToolArgumentsHelper.REQUEST_CONTEXT_KEY);
+		if (value instanceof RequestContext requestContext) {
+			return requestContext;
+		}
+		return null;
 	}
 
 }
