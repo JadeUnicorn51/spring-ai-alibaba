@@ -52,7 +52,14 @@ const getSelectedMenuKey = (pathname: string): string => {
   }
 
   if (pathname.startsWith('/skill')) {
+    if (pathname.startsWith('/skill/plugin')) {
+      return '/skill/plugin';
+    }
     return '/skill';
+  }
+
+  if (pathname.startsWith('/component/plugin')) {
+    return '/skill/plugin';
   }
 
   if (pathname.startsWith('/setting')) {
@@ -188,6 +195,18 @@ export default function SideMenuLayout({ children }: { children: React.ReactNode
             key: '/skill',
             label: '技能',
             icon: <ToolOutlined />,
+            children: [
+              {
+                key: '/skill',
+                label: '技能管理',
+                icon: <ToolOutlined />,
+              },
+              {
+                key: '/skill/plugin',
+                label: '插件管理',
+                icon: <ToolOutlined />,
+              },
+            ],
           },
           {
             key: '/dify',

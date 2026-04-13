@@ -126,6 +126,10 @@ export default defineConfig({
       component: 'Knowledge/List/index',
     },
     {
+      path: '/skill/plugin',
+      component: 'Skill/Plugin',
+    },
+    {
       path: '/skill',
       component: 'Skill/index',
     },

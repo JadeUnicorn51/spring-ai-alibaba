@@ -107,6 +107,10 @@ public class ChatController {
 
 		RequestContext context = RequestContextHolder.getRequestContext();
 		context.setStartTime(System.currentTimeMillis());
+		if (StringUtils.isBlank(context.getAccountId()) && request != null
+				&& StringUtils.isNotBlank(request.getUserId())) {
+			context.setAccountId(request.getUserId());
+		}
 
 		LogUtils.trace(context, "startCall", LogUtils.SUCCESS, start, request, null);
 

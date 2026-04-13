@@ -48,6 +48,8 @@ export default function (props: { appId: string; type: IAppType }) {
 -H 'Content-Type: application/json' \\
 -d '{
   "app_id": "${props.appId}",
+  "conversation_id": "session_123",
+  "user_id": "user_123",
   "messages": [
     {
       "role": "user",

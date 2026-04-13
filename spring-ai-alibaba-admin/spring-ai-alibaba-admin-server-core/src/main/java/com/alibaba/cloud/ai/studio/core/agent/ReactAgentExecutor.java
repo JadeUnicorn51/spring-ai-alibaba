@@ -30,8 +30,10 @@ import com.alibaba.cloud.ai.graph.checkpoint.config.SaverConfig;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
 import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
+import com.alibaba.cloud.ai.graph.store.Store;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.skills.registry.SkillRegistry;
+import com.alibaba.cloud.ai.studio.core.agent.memory.LongTermMemoryHook;
 import com.alibaba.cloud.ai.studio.core.agent.interceptor.SystemMessageMergeInterceptor;
 import com.alibaba.cloud.ai.studio.core.agent.skill.DatabaseSkillRegistry;
 import com.alibaba.cloud.ai.studio.core.base.manager.AppComponentManager;
@@ -97,14 +99,17 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 			""";
 
 	private final DatabaseSkillRegistry databaseSkillRegistry;
+	private final Store longTermMemoryStore;
 
 	public ReactAgentExecutor(ToolExecutionService toolExecutionService, PluginService pluginService,
 			McpServerService mcpServerService, AppComponentManager appComponentManager,
 			DocumentRetrieverManager documentRetrieverManager, ChatMemory chatMemory, CommonConfig commonConfig,
-			ModelFactory modelFactory, FileManager fileManager, DatabaseSkillRegistry databaseSkillRegistry) {
+			ModelFactory modelFactory, FileManager fileManager, DatabaseSkillRegistry databaseSkillRegistry,
+			@Qualifier("longTermMemoryStore") Store longTermMemoryStore) {
 		super(toolExecutionService, pluginService, mcpServerService, appComponentManager, documentRetrieverManager,
 				chatMemory, commonConfig, modelFactory, fileManager);
 		this.databaseSkillRegistry = databaseSkillRegistry;
+		this.longTermMemoryStore = longTermMemoryStore;
 	}
 
 	@Override
@@ -183,6 +188,9 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 		SkillsAgentHook skillsAgentHook = buildSkillsAgentHook(context.getConfig(), toolCallbackProvider);
 		if (skillsAgentHook != null) {
 			hooks.add(skillsAgentHook);
+		}
+		if (shouldEnableLongTermMemory(context)) {
+			hooks.add(new LongTermMemoryHook(longTermMemoryStore));
 		}
 
 		int maxIterations = getMaxToolIterations(context.getConfig());
@@ -410,7 +418,33 @@ public class ReactAgentExecutor extends BasicAgentExecutor {
 	}
 
 	private RunnableConfig buildRunnableConfig(AgentContext context) {
-		return RunnableConfig.builder().threadId(buildThreadId(context)).build();
+		RunnableConfig.Builder builder = RunnableConfig.builder().threadId(buildThreadId(context));
+		String userId = resolveUserId(context);
+		if (StringUtils.isNotBlank(userId)) {
+			builder.addMetadata("user_id", userId);
+		}
+		if (StringUtils.isNotBlank(context.getWorkspaceId())) {
+			builder.addMetadata("workspace_id", context.getWorkspaceId());
+		}
+		if (longTermMemoryStore != null) {
+			builder.store(longTermMemoryStore);
+		}
+		return builder.build();
+	}
+
+	private boolean shouldEnableLongTermMemory(AgentContext context) {
+		return longTermMemoryStore != null && StringUtils.isNotBlank(resolveUserId(context));
+	}
+
+	private String resolveUserId(AgentContext context) {
+		if (context == null) {
+			return null;
+		}
+		AgentRequest request = context.getRequest();
+		if (request != null && StringUtils.isNotBlank(request.getUserId())) {
+			return request.getUserId();
+		}
+		return StringUtils.trimToNull(context.getAccountId());
 	}
 
 	private String buildThreadId(AgentContext context) {

@@ -45,6 +45,10 @@ public class AgentRequest implements Serializable {
 	@JsonProperty("conversation_id")
 	private String conversationId;
 
+	/** User identifier for long-term memory */
+	@JsonProperty("user_id")
+	private String userId;
+
 	/** List of chat messages in the conversation */
 	@JsonProperty("messages")
 	private List<ChatMessage> messages;
