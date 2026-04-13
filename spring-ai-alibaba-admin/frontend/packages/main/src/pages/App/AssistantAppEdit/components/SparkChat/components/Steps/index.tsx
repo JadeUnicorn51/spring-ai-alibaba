@@ -90,9 +90,32 @@ export default (props: IProps) => {
           children: (
             <Plugin
               params={{
+                name: (msg.function as IToolCallFunction)?.name,
                 arguments: (msg.function as IToolCallFunction)?.arguments || '',
                 output:
                   (matchedMsg?.function as IToolCallFunction)?.output || '',
+              }}
+            ></Plugin>
+          ),
+        });
+      }
+      if (msg.type === 'tool_result') {
+        // plugin result without preceding tool_call
+        res.push({
+          icon: <IconFont type="spark-plugin-line" size="small"></IconFont>,
+          title: $i18n.get(
+            {
+              id: 'main.components.SparkChat.components.Steps.index.plugin',
+              dm: '插件：{var1}',
+            },
+            { var1: (msg.function as IToolCallFunction)?.name },
+          ),
+          children: (
+            <Plugin
+              params={{
+                name: (msg.function as IToolCallFunction)?.name,
+                arguments: '',
+                output: (msg.function as IToolCallFunction)?.output,
               }}
             ></Plugin>
           ),
@@ -118,8 +141,30 @@ export default (props: IProps) => {
           children: (
             <Plugin
               params={{
+                name: (msg.function as IToolCallFunction).name,
                 arguments: (msg.function as IToolCallFunction)?.arguments,
                 output: (matchedMsg?.function as IToolCallFunction)?.output,
+              }}
+            ></Plugin>
+          ),
+        });
+      }
+      if (msg.type === 'mcp_tool_result') {
+        res.push({
+          icon: <IconFont type="spark-MCP-mcp-line" size="small"></IconFont>,
+          title: $i18n.get(
+            {
+              id: 'main.pages.App.AssistantAppEdit.components.SparkChat.components.Steps.index.mcp',
+              dm: 'MCP：{var1}',
+            },
+            { var1: (msg.function as IToolCallFunction)?.name },
+          ),
+          children: (
+            <Plugin
+              params={{
+                name: (msg.function as IToolCallFunction)?.name,
+                arguments: '',
+                output: (msg.function as IToolCallFunction)?.output,
               }}
             ></Plugin>
           ),
@@ -147,8 +192,32 @@ export default (props: IProps) => {
           children: (
             <Plugin
               params={{
+                name: (msg.function as IToolCallFunction)?.name,
                 arguments: (msg.function as IToolCallFunction)?.arguments,
                 output: (matchedMsg?.function as IToolCallFunction)?.output,
+              }}
+            ></Plugin>
+          ),
+        });
+      }
+      if (msg.type === 'component_tool_result') {
+        res.push({
+          icon: <IconFont type="spark-doubleStar-line" size="small"></IconFont>,
+          title: $i18n.get(
+            {
+              id: 'main.pages.App.AssistantAppEdit.components.SparkChat.components.Steps.component',
+              dm: '组件：{var1}',
+            },
+            {
+              var1: (msg.function as IToolCallFunction)?.name,
+            },
+          ),
+          children: (
+            <Plugin
+              params={{
+                name: (msg.function as IToolCallFunction)?.name,
+                arguments: '',
+                output: (msg.function as IToolCallFunction)?.output,
               }}
             ></Plugin>
           ),

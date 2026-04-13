@@ -1,8 +1,8 @@
 // Interface for tool call function
 export interface IToolCallFunction {
   name: string; // Tool name
-  arguments?: string; // Input parameters
-  output?: string; // Output parameters
+  arguments?: string | Record<string, unknown> | unknown; // Input parameters
+  output?: string | Record<string, unknown> | unknown; // Output parameters
 }
 
 // Interface for file search call function
