@@ -16,6 +16,8 @@
 
 package com.alibaba.cloud.ai.studio.admin.desktoplocal.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Map;
 
 /**
@@ -25,10 +27,11 @@ import java.util.Map;
  */
 public record ModelDefaultsDTO(ChatDefaults chat, EmbeddingDefaults embedding) {
 
-	public record ChatDefaults(String provider, String modelId, Map<String, Object> parameters) {
+	public record ChatDefaults(String provider, @JsonProperty("model_id") String modelId,
+			Map<String, Object> parameters) {
 	}
 
-	public record EmbeddingDefaults(String provider, String modelId) {
+	public record EmbeddingDefaults(String provider, @JsonProperty("model_id") String modelId) {
 	}
 
 }

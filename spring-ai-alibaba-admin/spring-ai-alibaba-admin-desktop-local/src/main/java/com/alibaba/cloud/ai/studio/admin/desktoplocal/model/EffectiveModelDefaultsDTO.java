@@ -16,6 +16,8 @@
 
 package com.alibaba.cloud.ai.studio.admin.desktoplocal.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Map;
 
 /**
@@ -31,8 +33,8 @@ public record EffectiveModelDefaultsDTO(ResolvedModel chat, ResolvedModel embedd
 
 	}
 
-	public record ResolvedModel(String provider, String modelId, Map<String, Object> parameters, Source source,
-			String message) {
+	public record ResolvedModel(String provider, @JsonProperty("model_id") String modelId,
+			Map<String, Object> parameters, Source source, String message) {
 	}
 
 }

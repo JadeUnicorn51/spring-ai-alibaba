@@ -69,6 +69,10 @@
             <artifactId>spring-ai-alibaba-admin-server-openapi</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-admin-desktop-local</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springdoc</groupId>

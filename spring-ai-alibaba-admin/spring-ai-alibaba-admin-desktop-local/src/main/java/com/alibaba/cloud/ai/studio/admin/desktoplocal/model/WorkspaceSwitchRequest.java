@@ -16,9 +16,11 @@
 
 package com.alibaba.cloud.ai.studio.admin.desktoplocal.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Request for switching the desktop-local default workspace.
  * @param workspaceId target workspace ID
  */
-public record WorkspaceSwitchRequest(String workspaceId) {
+public record WorkspaceSwitchRequest(@JsonProperty("workspace_id") String workspaceId) {
 }
