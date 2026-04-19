@@ -60,7 +60,7 @@ public class DesktopLocalModelDefaultsService {
 		return modelDefaults;
 	}
 
-	private void validateModelDefaults(ModelDefaultsDTO modelDefaults) {
+	public void validateModelDefaults(ModelDefaultsDTO modelDefaults) {
 		ModelDefaultsDTO.ChatDefaults chat = modelDefaults.chat();
 		if (chat != null) {
 			validateModelRef("chat", chat.provider(), chat.modelId());

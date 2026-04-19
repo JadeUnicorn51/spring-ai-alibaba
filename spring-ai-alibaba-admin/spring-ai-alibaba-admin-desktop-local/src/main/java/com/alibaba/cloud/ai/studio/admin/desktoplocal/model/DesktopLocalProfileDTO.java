@@ -14,22 +14,17 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.studio.admin.desktoplocal;
+package com.alibaba.cloud.ai.studio.admin.desktoplocal.model;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Constants shared by desktop-local APIs and services.
+ * Desktop-local profile state.
+ * @param profileId profile ID
+ * @param accountId local account ID
+ * @param defaultWorkspaceId selected default workspace ID
  */
-public final class DesktopLocalConstants {
-
-	public static final String API_PREFIX = "/desktop/v1";
-
-	public static final String LOCAL_PROFILE_ID = "local";
-
-	public static final String LOCAL_ACCOUNT_ID = "local";
-
-	public static final String SETTING_KEY_MODEL_DEFAULTS = "MODEL_DEFAULTS";
-
-	private DesktopLocalConstants() {
-	}
-
+public record DesktopLocalProfileDTO(@JsonProperty("profile_id") String profileId,
+		@JsonProperty("account_id") String accountId,
+		@JsonProperty("default_workspace_id") String defaultWorkspaceId) {
 }
