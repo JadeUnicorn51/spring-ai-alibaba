@@ -20,6 +20,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -46,6 +47,52 @@ public class DesktopLocalKnowledgeBaseRepository {
 		catch (EmptyResultDataAccessException ex) {
 			return Optional.empty();
 		}
+	}
+
+	public boolean existsActiveName(String profileId, String workspaceId, String name, String excludeKbId) {
+		String sql = """
+				SELECT COUNT(1)
+				FROM desktop_local_knowledge_base
+				WHERE profile_id = ? AND workspace_id = ? AND name = ? AND status <> 0
+				""";
+		Object[] args;
+		if (excludeKbId == null || excludeKbId.isBlank()) {
+			args = new Object[] { profileId, workspaceId, name };
+		}
+		else {
+			sql = sql + " AND kb_id <> ?";
+			args = new Object[] { profileId, workspaceId, name, excludeKbId };
+		}
+		Integer count = jdbcTemplate.queryForObject(sql, Integer.class, args);
+		return count != null && count > 0;
+	}
+
+	public void insertKnowledgeBase(String profileId, Map<String, Object> values) {
+		jdbcTemplate.update("""
+				INSERT INTO desktop_local_knowledge_base
+				  (kb_id, workspace_id, profile_id, type, status, name, description,
+				   process_config, index_config, search_config, total_docs, creator, modifier)
+				VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 0, ?, ?)
+				""", values.get("kbId"), values.get("workspaceId"), profileId, values.get("type"), values.get("name"),
+				values.get("description"), values.get("processConfig"), values.get("indexConfig"),
+				values.get("searchConfig"), values.get("operator"), values.get("operator"));
+	}
+
+	public int updateKnowledgeBase(String profileId, String kbId, Map<String, Object> values) {
+		return jdbcTemplate.update("""
+				UPDATE desktop_local_knowledge_base
+				SET type = ?,
+				    name = ?,
+				    description = ?,
+				    process_config = ?,
+				    index_config = ?,
+				    search_config = ?,
+				    modifier = ?,
+				    gmt_modified = CURRENT_TIMESTAMP
+				WHERE profile_id = ? AND workspace_id = ? AND kb_id = ? AND status <> 0
+				""", values.get("type"), values.get("name"), values.get("description"), values.get("processConfig"),
+				values.get("indexConfig"), values.get("searchConfig"), values.get("operator"), profileId,
+				values.get("workspaceId"), kbId);
 	}
 
 }
