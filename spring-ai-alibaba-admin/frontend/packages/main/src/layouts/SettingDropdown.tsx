@@ -27,6 +27,10 @@ const menuItems: MenuProps['items'] = [
       dm: 'API KEY管理',
     }),
   },
+  {
+    key: '/setting/desktopLocal',
+    label: '桌面端本地设置',
+  },
 ];
 
 const SettingDropdown: React.FC = () => {
