@@ -30,6 +30,7 @@
         <module>spring-ai-alibaba-admin-server-core</module>
         <module>spring-ai-alibaba-admin-server-runtime</module>
         <module>spring-ai-alibaba-admin-server-openapi</module>
+        <module>spring-ai-alibaba-admin-desktop-local</module>
         <module>services</module>
     </modules>
 
@@ -146,6 +147,11 @@
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-admin-server-core</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-admin-desktop-local</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
