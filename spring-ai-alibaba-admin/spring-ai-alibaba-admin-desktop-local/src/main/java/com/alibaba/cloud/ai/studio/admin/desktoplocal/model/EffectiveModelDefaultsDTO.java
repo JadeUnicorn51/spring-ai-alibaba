@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.studio.admin.desktoplocal.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Map;
 
@@ -29,7 +30,19 @@ public record EffectiveModelDefaultsDTO(ResolvedModel chat, ResolvedModel embedd
 
 	public enum Source {
 
-		KB, WORKSPACE, LOCAL_PROFILE, FALLBACK_ENABLED_MODEL, UNRESOLVED
+		KB("kb"), WORKSPACE("workspace"), LOCAL_PROFILE("local_profile"), FALLBACK_ENABLED_MODEL(
+				"fallback_enabled_model"), UNRESOLVED("unresolved");
+
+		private final String value;
+
+		Source(String value) {
+			this.value = value;
+		}
+
+		@JsonValue
+		public String getValue() {
+			return value;
+		}
 
 	}
 

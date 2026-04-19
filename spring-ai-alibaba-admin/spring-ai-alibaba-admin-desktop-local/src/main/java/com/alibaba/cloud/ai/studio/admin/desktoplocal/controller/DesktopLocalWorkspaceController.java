@@ -17,7 +17,9 @@
 package com.alibaba.cloud.ai.studio.admin.desktoplocal.controller;
 
 import com.alibaba.cloud.ai.studio.admin.desktoplocal.DesktopLocalConstants;
+import com.alibaba.cloud.ai.studio.admin.desktoplocal.model.EffectiveModelDefaultsDTO;
 import com.alibaba.cloud.ai.studio.admin.desktoplocal.model.ModelDefaultsDTO;
+import com.alibaba.cloud.ai.studio.admin.desktoplocal.service.DesktopLocalModelDefaultsResolver;
 import com.alibaba.cloud.ai.studio.admin.desktoplocal.service.DesktopLocalWorkspaceModelDefaultsService;
 import com.alibaba.cloud.ai.studio.runtime.domain.Result;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -36,8 +39,12 @@ public class DesktopLocalWorkspaceController {
 
 	private final DesktopLocalWorkspaceModelDefaultsService workspaceModelDefaultsService;
 
-	public DesktopLocalWorkspaceController(DesktopLocalWorkspaceModelDefaultsService workspaceModelDefaultsService) {
+	private final DesktopLocalModelDefaultsResolver modelDefaultsResolver;
+
+	public DesktopLocalWorkspaceController(DesktopLocalWorkspaceModelDefaultsService workspaceModelDefaultsService,
+			DesktopLocalModelDefaultsResolver modelDefaultsResolver) {
 		this.workspaceModelDefaultsService = workspaceModelDefaultsService;
+		this.modelDefaultsResolver = modelDefaultsResolver;
 	}
 
 	@GetMapping("/{workspaceId}/model-defaults")
@@ -49,6 +56,12 @@ public class DesktopLocalWorkspaceController {
 	public Result<ModelDefaultsDTO> saveWorkspaceModelDefaults(@PathVariable("workspaceId") String workspaceId,
 			@RequestBody ModelDefaultsDTO request) {
 		return Result.success(workspaceModelDefaultsService.saveWorkspaceModelDefaults(workspaceId, request));
+	}
+
+	@GetMapping("/{workspaceId}/model-defaults/effective")
+	public Result<EffectiveModelDefaultsDTO> getEffectiveModelDefaults(@PathVariable("workspaceId") String workspaceId,
+			@RequestParam(name = "kb_id", required = false) String kbId) {
+		return Result.success(modelDefaultsResolver.resolve(workspaceId, kbId));
 	}
 
 }
