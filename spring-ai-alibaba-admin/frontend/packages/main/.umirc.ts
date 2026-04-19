@@ -178,8 +178,8 @@ export default defineConfig({
       component: 'Setting/APIKeys',
     },
     {
-      path: '/setting/desktopLocal',
-      component: 'Setting/DesktopLocal',
+      path: '/desktop-local/settings',
+      component: 'DesktopLocal/Settings',
     },
     {
       path: '/agent-schema',
