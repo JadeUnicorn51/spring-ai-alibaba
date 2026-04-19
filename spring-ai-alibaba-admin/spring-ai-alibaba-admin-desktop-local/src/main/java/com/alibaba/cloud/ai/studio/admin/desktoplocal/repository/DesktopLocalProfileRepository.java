@@ -51,15 +51,21 @@ public class DesktopLocalProfileRepository {
 	}
 
 	public void upsertDefaultWorkspace(String profileId, String accountId, String workspaceId, String operator) {
+		int updated = jdbcTemplate.update("""
+				UPDATE desktop_local_account_profile
+				SET account_id = ?,
+				    default_workspace_id = ?,
+				    modifier = ?,
+				    gmt_modified = CURRENT_TIMESTAMP
+				WHERE profile_id = ?
+				""", accountId, workspaceId, operator, profileId);
+		if (updated > 0) {
+			return;
+		}
 		jdbcTemplate.update("""
 				INSERT INTO desktop_local_account_profile
 				  (profile_id, account_id, default_workspace_id, creator, modifier)
 				VALUES (?, ?, ?, ?, ?)
-				ON DUPLICATE KEY UPDATE
-				  account_id = VALUES(account_id),
-				  default_workspace_id = VALUES(default_workspace_id),
-				  modifier = VALUES(modifier),
-				  gmt_modified = CURRENT_TIMESTAMP
 				""", profileId, accountId, workspaceId, operator, operator);
 	}
 

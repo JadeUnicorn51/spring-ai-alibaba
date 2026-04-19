@@ -47,14 +47,21 @@ public class DesktopLocalSettingRepository {
 	}
 
 	public void upsertValue(String profileId, String settingKey, String settingValue, String operator) {
+		int updated = jdbcTemplate.update("""
+				UPDATE desktop_local_setting
+				SET setting_value = ?,
+				    modifier = ?,
+				    gmt_modified = CURRENT_TIMESTAMP
+				WHERE profile_id = ?
+				  AND setting_key = ?
+				""", settingValue, operator, profileId, settingKey);
+		if (updated > 0) {
+			return;
+		}
 		jdbcTemplate.update("""
 				INSERT INTO desktop_local_setting
 				  (profile_id, setting_key, setting_value, creator, modifier)
 				VALUES (?, ?, ?, ?, ?)
-				ON DUPLICATE KEY UPDATE
-				  setting_value = VALUES(setting_value),
-				  modifier = VALUES(modifier),
-				  gmt_modified = CURRENT_TIMESTAMP
 				""", profileId, settingKey, settingValue, operator, operator);
 	}
 
