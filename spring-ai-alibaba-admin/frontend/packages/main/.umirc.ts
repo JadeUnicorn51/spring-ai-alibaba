@@ -178,10 +178,6 @@ export default defineConfig({
       component: 'Setting/APIKeys',
     },
     {
-      path: '/desktop-local/settings',
-      component: 'DesktopLocal/Settings',
-    },
-    {
       path: '/agent-schema',
       component: 'AgentSchema/index',
     },
@@ -199,10 +195,6 @@ export default defineConfig({
       changeOrigin: true,
     },
     '/console': {
-      target: process.env.WEB_SERVER || 'http://localhost:28080',
-      changeOrigin: true,
-    },
-    '/desktop': {
       target: process.env.WEB_SERVER || 'http://localhost:28080',
       changeOrigin: true,
     },

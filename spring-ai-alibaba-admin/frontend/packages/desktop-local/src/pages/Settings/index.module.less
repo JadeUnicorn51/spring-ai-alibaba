@@ -1,15 +1,32 @@
-.container {
-  padding: 20px 0;
-  max-width: 1080px;
+.shell {
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 28px;
+  background: #ffffff;
+  border-bottom: 1px solid #e7eaf0;
+}
+
+.brand {
+  font-size: 16px;
+  font-weight: 600;
+  color: #151b26;
+}
+
+.content {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
 }
 
 .section {
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--ag-ant-color-border-secondary);
-
-  &:last-child {
-    border-bottom: none;
-  }
+  margin-top: 16px;
 }
 
 .sectionHeader {
@@ -25,12 +42,11 @@
   font-size: 16px;
   line-height: 24px;
   font-weight: 600;
-  color: var(--ag-ant-color-text);
 }
 
 .description {
   margin: 4px 0 0;
-  color: var(--ag-ant-color-text-secondary);
+  color: #64748b;
 }
 
 .formGrid {
@@ -62,7 +78,7 @@
 
 .effectiveItem {
   padding: 16px;
-  border: 1px solid var(--ag-ant-color-border-secondary);
+  border: 1px solid #e7eaf0;
   border-radius: 8px;
 }
 
@@ -76,7 +92,7 @@
 }
 
 .modelLine {
-  color: var(--ag-ant-color-text-secondary);
+  color: #64748b;
   word-break: break-all;
 }
 

@@ -1,0 +1,25 @@
+{
+  "name": "desktop-local",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "cross-env DID_YOU_KNOW=none umi build",
+    "dev": "cross-env DID_YOU_KNOW=none umi dev",
+    "postinstall": "umi setup",
+    "setup": "umi setup",
+    "start": "npm run dev"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5",
+    "antd": "^5",
+    "axios": "^1.8.4",
+    "react": "^18",
+    "react-dom": "^18",
+    "umi": "^4.3.8"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.33",
+    "@types/react-dom": "^18.0.11",
+    "typescript": "^5.0.3"
+  }
+}

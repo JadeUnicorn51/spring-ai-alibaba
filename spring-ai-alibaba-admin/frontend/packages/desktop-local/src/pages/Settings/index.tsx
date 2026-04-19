@@ -1,4 +1,3 @@
-import InnerLayout from '@/components/InnerLayout';
 import {
   getDesktopLocalEffectiveModelDefaults,
   getDesktopLocalModelDefaults,
@@ -16,15 +15,18 @@ import type {
   IDesktopLocalResolvedModel,
 } from '@/types/desktopLocal';
 import type { IModelSelectorItem } from '@/types/modelService';
-import { Button, message } from '@spark-ai/design';
 import {
   Alert,
+  App,
+  Button,
+  Card,
   Descriptions,
   Form,
   Input,
   InputNumber,
   Select,
   Space,
+  Spin,
   Tag,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
@@ -69,22 +71,20 @@ const fromModelValue = (value?: string) => {
 
 const toFormValues = (
   defaults?: IDesktopLocalModelDefaults,
-): ModelDefaultsForm => {
-  return {
-    chat: {
-      value: toModelValue(defaults?.chat?.provider, defaults?.chat?.model_id),
-      temperature: defaults?.chat?.parameters?.temperature as number | undefined,
-      max_tokens: defaults?.chat?.parameters?.max_tokens as number | undefined,
-      top_p: defaults?.chat?.parameters?.top_p as number | undefined,
-    },
-    embedding: {
-      value: toModelValue(
-        defaults?.embedding?.provider,
-        defaults?.embedding?.model_id,
-      ),
-    },
-  };
-};
+): ModelDefaultsForm => ({
+  chat: {
+    value: toModelValue(defaults?.chat?.provider, defaults?.chat?.model_id),
+    temperature: defaults?.chat?.parameters?.temperature as number | undefined,
+    max_tokens: defaults?.chat?.parameters?.max_tokens as number | undefined,
+    top_p: defaults?.chat?.parameters?.top_p as number | undefined,
+  },
+  embedding: {
+    value: toModelValue(
+      defaults?.embedding?.provider,
+      defaults?.embedding?.model_id,
+    ),
+  },
+});
 
 const toDefaultsPayload = (
   values: ModelDefaultsForm,
@@ -120,8 +120,8 @@ const toDefaultsPayload = (
   };
 };
 
-const buildModelOptions = (selector: IModelSelectorItem[]): ModelOption[] => {
-  return selector.flatMap((group) =>
+const buildModelOptions = (selector: IModelSelectorItem[]): ModelOption[] =>
+  selector.flatMap((group) =>
     (group.models || []).map((model) => ({
       label: `${group.provider.name || group.provider.provider} / ${
         model.name || model.model_id
@@ -131,15 +131,11 @@ const buildModelOptions = (selector: IModelSelectorItem[]): ModelOption[] => {
       modelId: model.model_id,
     })),
   );
-};
 
-const modelSelectFilter = (input: string, option?: ModelOption) => {
-  return `${option?.label || ''} ${option?.provider || ''} ${
-    option?.modelId || ''
-  }`
+const modelSelectFilter = (input: string, option?: ModelOption) =>
+  `${option?.label || ''} ${option?.provider || ''} ${option?.modelId || ''}`
     .toLowerCase()
     .includes(input.toLowerCase());
-};
 
 const renderResolvedModel = (
   title: string,
@@ -157,13 +153,14 @@ const renderResolvedModel = (
       <div className={styles.modelLine}>
         {model?.provider && model?.model_id
           ? `${model.provider} / ${model.model_id}`
-          : model?.message || '未解析到可用模型'}
+          : model?.message || 'No available model resolved'}
       </div>
     </div>
   );
 };
 
-const DesktopLocalSetting = () => {
+const SettingsContent = () => {
+  const { message } = App.useApp();
   const [profile, setProfile] = useState<IDesktopLocalProfile>();
   const [loading, setLoading] = useState(false);
   const [workspaceId, setWorkspaceId] = useState('');
@@ -236,13 +233,13 @@ const DesktopLocalSetting = () => {
     const values = await profileForm.validateFields();
     const result = await saveDesktopLocalModelDefaults(toDefaultsPayload(values));
     profileForm.setFieldsValue(toFormValues(result));
-    message.success('全局模型默认值已保存');
+    message.success('Global defaults saved');
     await loadEffectiveDefaults();
   };
 
   const handleLoadWorkspace = async () => {
     if (!currentWorkspaceId) {
-      message.warning('请输入工作区 ID');
+      message.warning('Enter a workspace ID');
       return;
     }
     await loadWorkspaceDefaults(currentWorkspaceId);
@@ -251,7 +248,7 @@ const DesktopLocalSetting = () => {
 
   const handleSaveWorkspaceDefaults = async () => {
     if (!currentWorkspaceId) {
-      message.warning('请输入工作区 ID');
+      message.warning('Enter a workspace ID');
       return;
     }
     const values = await workspaceForm.validateFields();
@@ -260,13 +257,13 @@ const DesktopLocalSetting = () => {
       toDefaultsPayload(values),
     );
     workspaceForm.setFieldsValue(toFormValues(result));
-    message.success('工作区模型默认值已保存');
+    message.success('Workspace defaults saved');
     await loadEffectiveDefaults(currentWorkspaceId);
   };
 
   const handleSwitchDefaultWorkspace = async () => {
     if (!currentWorkspaceId) {
-      message.warning('请输入工作区 ID');
+      message.warning('Enter a workspace ID');
       return;
     }
     const result = await switchDesktopLocalDefaultWorkspace({
@@ -277,7 +274,7 @@ const DesktopLocalSetting = () => {
         ? { ...previous, default_workspace_id: result.workspace_id }
         : previous,
     );
-    message.success('默认工作区已切换');
+    message.success('Default workspace switched');
     await loadWorkspaceDefaults(result.workspace_id);
     await loadEffectiveDefaults(result.workspace_id);
   };
@@ -287,22 +284,25 @@ const DesktopLocalSetting = () => {
   ) => (
     <Form form={form} layout="vertical">
       <div className={styles.formGrid}>
-        <Form.Item name={['chat', 'value']} label="默认对话模型">
+        <Form.Item name={['chat', 'value']} label="Default chat model">
           <Select
             allowClear
             showSearch
             filterOption={modelSelectFilter}
             options={chatOptions}
-            placeholder="选择 LLM 模型"
+            placeholder="Select LLM model"
           />
         </Form.Item>
-        <Form.Item name={['embedding', 'value']} label="默认 Embedding 模型">
+        <Form.Item
+          name={['embedding', 'value']}
+          label="Default embedding model"
+        >
           <Select
             allowClear
             showSearch
             filterOption={modelSelectFilter}
             options={embeddingOptions}
-            placeholder="选择 Embedding 模型"
+            placeholder="Select embedding model"
           />
         </Form.Item>
       </div>
@@ -338,83 +338,97 @@ const DesktopLocalSetting = () => {
   );
 
   return (
-    <InnerLayout
-      loading={loading}
-      breadcrumbLinks={[{ title: '首页', path: '/' }, { title: '桌面端本地设置' }]}
-    >
-      <div className={styles.container}>
-        <Alert
-          type="info"
-          showIcon
-          message="桌面端本地配置"
-          description="该页面只调用 /desktop/v1/* 接口，用于配置本地 profile 与工作区模型默认值。"
-        />
+    <div className={styles.shell}>
+      <header className={styles.header}>
+        <div className={styles.brand}>Spring AI Alibaba Desktop</div>
+      </header>
+      <Spin spinning={loading}>
+        <main className={styles.content}>
+          <Alert
+            type="info"
+            showIcon
+            message="Desktop local settings"
+            description="This module calls /desktop/v1/* APIs and is isolated from the main console frontend package."
+          />
 
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h2 className={styles.title}>本地 Profile</h2>
-              <p className={styles.description}>当前桌面端账号和默认工作区状态。</p>
+          <Card className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2 className={styles.title}>Local profile</h2>
+                <p className={styles.description}>
+                  Current desktop account and default workspace state.
+                </p>
+              </div>
             </div>
-          </div>
-          <Descriptions column={3} size="small">
-            <Descriptions.Item label="Profile">
-              {profile?.profile_id || '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Account">
-              {profile?.account_id || '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="默认工作区">
-              {profile?.default_workspace_id || '-'}
-            </Descriptions.Item>
-          </Descriptions>
-        </div>
+            <Descriptions column={3} size="small">
+              <Descriptions.Item label="Profile">
+                {profile?.profile_id || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Account">
+                {profile?.account_id || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Default workspace">
+                {profile?.default_workspace_id || '-'}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
 
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h2 className={styles.title}>全局模型默认值</h2>
-              <p className={styles.description}>
-                作为桌面端本地 profile 的模型默认配置。
-              </p>
-            </div>
-            <Button type="primary" onClick={handleSaveProfileDefaults}>
-              保存全局默认值
-            </Button>
-          </div>
-          {renderModelDefaultsForm(profileForm)}
-        </div>
-
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h2 className={styles.title}>工作区覆盖</h2>
-              <p className={styles.description}>工作区配置会优先于全局默认值。</p>
-            </div>
-            <Space>
-              <Button onClick={handleLoadWorkspace}>加载工作区</Button>
-              <Button onClick={handleSwitchDefaultWorkspace}>设为默认工作区</Button>
-              <Button type="primary" onClick={handleSaveWorkspaceDefaults}>
-                保存工作区覆盖
+          <Card className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2 className={styles.title}>Global model defaults</h2>
+                <p className={styles.description}>
+                  Profile-level defaults used when a workspace has no override.
+                </p>
+              </div>
+              <Button type="primary" onClick={handleSaveProfileDefaults}>
+                Save global defaults
               </Button>
-            </Space>
-          </div>
-          <div className={styles.workspaceBar}>
-            <Input
-              value={currentWorkspaceId}
-              placeholder="输入 workspaceId"
-              onChange={(event) => setWorkspaceId(event.target.value)}
-            />
-          </div>
-          {renderModelDefaultsForm(workspaceForm)}
-          <div className={styles.effective}>
-            {renderResolvedModel('Effective Chat', effective?.chat)}
-            {renderResolvedModel('Effective Embedding', effective?.embedding)}
-          </div>
-        </div>
-      </div>
-    </InnerLayout>
+            </div>
+            {renderModelDefaultsForm(profileForm)}
+          </Card>
+
+          <Card className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2 className={styles.title}>Workspace override</h2>
+                <p className={styles.description}>
+                  Workspace defaults take precedence over profile defaults.
+                </p>
+              </div>
+              <Space>
+                <Button onClick={handleLoadWorkspace}>Load workspace</Button>
+                <Button onClick={handleSwitchDefaultWorkspace}>
+                  Set default
+                </Button>
+                <Button type="primary" onClick={handleSaveWorkspaceDefaults}>
+                  Save override
+                </Button>
+              </Space>
+            </div>
+            <div className={styles.workspaceBar}>
+              <Input
+                value={currentWorkspaceId}
+                placeholder="workspaceId"
+                onChange={(event) => setWorkspaceId(event.target.value)}
+              />
+            </div>
+            {renderModelDefaultsForm(workspaceForm)}
+            <div className={styles.effective}>
+              {renderResolvedModel('Effective chat', effective?.chat)}
+              {renderResolvedModel('Effective embedding', effective?.embedding)}
+            </div>
+          </Card>
+        </main>
+      </Spin>
+    </div>
   );
 };
 
-export default DesktopLocalSetting;
+export default function SettingsPage() {
+  return (
+    <App>
+      <SettingsContent />
+    </App>
+  );
+}
